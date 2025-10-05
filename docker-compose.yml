@@ -19,7 +19,7 @@ services:
   
   # ----------------------- CENTRAL -----------------------
   central:
-    build: ./central
+    build: ./central/backend
     container_name: ev_central
     restart: always
     depends_on:
@@ -36,11 +36,25 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./central:/app
+      - ./central:/app/backend
     networks:
       - ev_net
-    command: python central.py
+    command: python EV_Central.py
 
+  # ----------------------- NODE FRONTEND -----------------------
+  front:
+    build: ./central/frontend
+    container_name: frontend
+    depends_on:
+      - db
+      - central
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./front:/usr/src/app
+    networks:
+      - ev_net
+    command: npm run start
   # ----------------------- CHARGING POINTS -----------------------
 
   # ----------------------- VOLUMES & NETWORKS -----------------------
