@@ -3,9 +3,16 @@ import threading
 import time
 import random
 
+#TODO
+# ACTUALIZACIÓN DEL HTML
+# CONEXION CON BD
+# CONEXION CON KAFKA
+# CONTROL DE LOS CP DESDE AQUI
+
 # --------------------------
 #  FAKE SIMULATION DATA
 # --------------------------
+
 charging_points = {
     "CP1": {"location": "North Avenue", "price": 0.25, "state": "Available", "kw": 0.0, "driver": None},
     "CP2": {"location": "South Street", "price": 0.30, "state": "Available", "kw": 0.0, "driver": None},
@@ -14,6 +21,7 @@ charging_points = {
 # --------------------------
 #  BACKGROUND SIMULATION
 # --------------------------
+#TODO Connect to DB
 def simulate_data():
     while True:
         for cp in charging_points.values():
