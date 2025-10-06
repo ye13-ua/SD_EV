@@ -15,9 +15,9 @@ services:
     networks:
       - ev_net
   # ----------------------- KAFKA -----------------------
-  db-controller:
-    build: ./central/db
-    container_name: ev_controller
+  ev-db-controller:
+    build: ./central/db-controller
+    container_name: ev_db_controller
     depends_on:
       - db
     ports:
@@ -34,7 +34,7 @@ services:
     restart: always
     depends_on:
       - db
-      - db-controller
+      - ev-db-controller
 #      - kafka
     environment:
       DB_HOST: db
