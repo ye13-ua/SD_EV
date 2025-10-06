@@ -14,7 +14,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ev_net
-
+  # ----------------------- KAFKA -----------------------
+  db-controller:
+    build: ./central/db
+    container_name: ev_controller
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+    networks:
+      - ev_net
+    command: npm run start
   # ----------------------- KAFKA -----------------------
   
   # ----------------------- CENTRAL -----------------------
@@ -24,6 +34,7 @@ services:
     restart: always
     depends_on:
       - db
+      - db-controller
 #      - kafka
     environment:
       DB_HOST: db
