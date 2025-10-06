@@ -44,14 +44,12 @@ services:
   # ----------------------- NODE FRONTEND -----------------------
   front:
     build: ./central/frontend
-    container_name: frontend
+    container_name: ev_frontend
     depends_on:
       - db
       - central
     ports:
       - "3000:3000"
-    volumes:
-      - ./front:/usr/src/app
     networks:
       - ev_net
     command: npm run start
