@@ -37,12 +37,10 @@ export class CPModel {
     }
     static async Create({body}) {
         try {
-            const CP = validateParcialCP(body);
-            const CreatedCP = await CP.Create({
-                ID_UUID: CP.data.ID_UUID,
-                Ubicacion: CP.data.ubicacion,
-                Precio_KWH: CP.data.precio_KWH
-            })
+            
+            const validCP = validateParcialCP(body);
+         
+            const CreatedCP = await CP.bulkCreate([validCP])
             console.log("CP creado: ",CreatedCP.toJSON()); //TODO eliminar
             return CreatedCP.toJSON();
         } catch (err) {

@@ -1,15 +1,15 @@
 export class CPController {
-    constructor({CPModule}) {
-        this.CPModule = CPModule;
+    constructor({CPModel}) {
+        this.CPModel = CPModel;
     }
 
     ReadAll = async (req, res) => {
-        const CPs = await this.CPModule.ReadAll();
+        const CPs = await this.CPModel.ReadAll();
         res.json(CPs);
     }
 
     Create = async (req, res) => {
-        const newCP = await this.CPModule.Create({body: req.body});
+        const newCP = await this.CPModel.Create({body: req.body});
 
         if(newCP) return res.status(201).json(newCP);
 
