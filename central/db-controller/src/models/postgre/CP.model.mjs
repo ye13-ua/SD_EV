@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "./connection.mjs";
+import { sequelize } from "../../db/connection.mjs";
 import { validateParcialCP } from "../../schemas/CP.schema.mjs";
 
 //ORM 
@@ -31,7 +31,7 @@ export class CPModel {
             const CpsJSON = CPs.map(c => c.toJSON());
             return CpsJSON
         } catch(err){
-            console.log("Error al leer todo",err);
+            console.log("Error al leer todo",err); //TODO eliminar
             return
         }
     }
