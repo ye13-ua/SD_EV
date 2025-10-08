@@ -15,7 +15,7 @@ import { sequelize } from "./db/connection.mjs";
 
 export const  createApp = async ({model}) => {
   const app = express();
-  await sequelize.sync();
+  await sequelize.sync({force: true}); //TODO Quitar force 
   const PORT = process.env.PORT ?? 4000;
 
   app.use(express.json());
@@ -26,7 +26,6 @@ export const  createApp = async ({model}) => {
   });
 
   app.use((req, res, next) => {
-    console.log("Esto es lo que llego -> ",req.body);
     res.on('finish', () => {
         
       console.log(`Se ejecutó la operación ${req.method} -> ${req.originalUrl}`);
