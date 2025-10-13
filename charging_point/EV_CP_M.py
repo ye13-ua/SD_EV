@@ -2,16 +2,17 @@ import socket
 import time
 import json
 import os
+import uuid
 
 # Config
 ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
-ENGINE_PORT = int(os.getenv("ENGINE_PORT","9100"))
+ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 
 CENTRAL_HOST = os.getenv("CENTRAL_HOST","localhost")
-CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","9000"))
+CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","8000"))
 
-CP_ID = os.getenv("CP_ID","CP1")
-PING_INTERVAL = 5
+CP_ID = os.getenv("CP_ID", socket.gethostname().upper()) or str(uuid.uuid4())
+PING_INTERVAL = 5 
 
 # Ping engine for connection
 def ping_engine():

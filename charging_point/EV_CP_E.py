@@ -6,8 +6,8 @@ import threading
 
 # Config
 HOST = "0.0.0.0"
-PORT = int(os.getenv("ENGINE_PORT","9100"))
-CP_ID = os.getenv("CP_ID","CP1")
+PORT = int(os.getenv("ENGINE_PORT","7000"))
+CP_ID = os.getenv("CP_ID", socket.gethostname().upper())
 
 # stub
 kafka_ok = True

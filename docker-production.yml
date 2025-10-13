@@ -68,7 +68,7 @@ services:
     command: python central.py
 
   # ----------------------- CHARGING POINTS -----------------------
-  cp1:
+  cp:
     build: ./charging_point
     container_name: ev_cp1
     restart: always
@@ -78,23 +78,7 @@ services:
       CP_ID: CP1
       CENTRAL_HOST: central
       CENTRAL_PORT: 8000
-      KAFKA_BOOTSTRAP: kafka:9092
-    volumes:
-      - ./charging_point:/app
-    networks:
-      - ev_net
-    command: python engine.py
-
-  cp2:
-    build: ./charging_point
-    container_name: ev_cp2
-    restart: always
-    depends_on:
-      - central
-    environment:
-      CP_ID: CP2
-      CENTRAL_HOST: central
-      CENTRAL_PORT: 8000
+      ENGINE_PORT: 7000
       KAFKA_BOOTSTRAP: kafka:9092
     volumes:
       - ./charging_point:/app
