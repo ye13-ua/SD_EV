@@ -8,17 +8,37 @@
 
 
 import express from "express";
+import { createCPRouter } from "./routes/CP.routes.mjs";
+import { postgreModel } from "./models/postgre/postgre.mjs";
+import { sequelize } from "./db/connection.mjs";
 
-const app = express();
-const PORT = process.env.PORT || 4000;
 
-app.use(express.json());
-app.disable("x-powered-by");
+export const  createApp = async ({model}) => {
+  const app = express();
+  await sequelize.sync({force: true}); //TODO Quitar force 
+  const PORT = process.env.PORT ?? 4000;
 
-app.get("/", (req, res) => {
-  res.send("Hola mundo");
-});
+  app.use(express.json());
+  app.disable("x-powered-by");
+  //TODO Eliminar
+  app.get("/", (req, res) => {
+    res.send("Hola mundo");
+  });
 
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto ${PORT}`);
-});
+  app.use((req, res, next) => {
+    res.on('finish', () => {
+        
+      console.log(`Se ejecutó la operación ${req.method} -> ${req.originalUrl}`);
+    });
+
+    next();
+  })
+  //TODO Implementar metodo que pase de cola a http
+  app.use("/CPs",createCPRouter({CPModel: model.CPModel}))
+
+  app.listen(PORT, () => {
+    console.log(`Servidor escuchando en el puerto ${PORT}`);
+  });
+}
+
+createApp({model: postgreModel})
