@@ -44,7 +44,9 @@ export class CPModel {
             if (await CP.findByPk(validCP.data.ID_UUID)) {
                 return {error: "Valor ya existente"}
             } else {
+                
                 const CreatedCP = await CP.bulkCreate([validCP.data])
+                
                 return CreatedCP[0].dataValues;
             }
         } catch (err) {
