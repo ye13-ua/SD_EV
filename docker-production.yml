@@ -75,7 +75,6 @@ services:
     depends_on:
       - central
     environment:
-      CP_ID: CP1
       CENTRAL_HOST: central
       CENTRAL_PORT: 8000
       ENGINE_PORT: 7000

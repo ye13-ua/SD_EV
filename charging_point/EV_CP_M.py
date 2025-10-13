@@ -11,8 +11,25 @@ ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 CENTRAL_HOST = os.getenv("CENTRAL_HOST","localhost")
 CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","8000"))
 
-CP_ID = os.getenv("CP_ID", socket.gethostname().upper()) or str(uuid.uuid4())
+UUID_PATH = "/app/cp_uuid.json"
+
 PING_INTERVAL = 5 
+
+def load_or_create_uuid():
+    if os.path.exists(UUID_PATH):
+        try:
+            with open(UUID_PATH, "r") as f:
+                data = json.load(f)
+                if "id" in data:
+                    return data["id"]
+        except Exception:
+            pass
+    new_id = str(uuid.uuid4())
+    with open(UUID_PATH, "w") as f:
+        json.dump({"id": new_id}, f)
+    return new_id
+
+CP_ID = load_or_create_uuid()
 
 # Ping engine for connection
 def ping_engine():
@@ -20,7 +37,8 @@ def ping_engine():
         s.settimeout(1)
         try:
             s.connect((ENGINE_HOST, ENGINE_PORT))
-            s.sendall(b"PING")
+            payload = {"action": "PING", "cp_id": CP_ID}
+            s.sendall(json.dumps(payload).encode())
             data = s.recv(1024)
             reply = json.loads(data.decode())
             return reply

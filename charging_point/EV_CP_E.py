@@ -7,19 +7,30 @@ import threading
 # Config
 HOST = "0.0.0.0"
 PORT = int(os.getenv("ENGINE_PORT","7000"))
-CP_ID = os.getenv("CP_ID", socket.gethostname().upper())
+CP_ID = None
 
 # stub
 kafka_ok = True
 
 # Respond to ping from monitor
 def handle_monitor(conn):
-    global kafka_ok
-    data = conn.recv(1024)
-    if data == b"PING":
-        response = {"pong": True, "kafka_ok": kafka_ok}
-        conn.sendall(json.dumps(response).encode())
-    conn.close()
+    global kafka_ok, CP_ID
+    try:
+        data = conn.recv(1024)
+        if not data:
+            return
+        msg = json.loads(data.decode())
+
+        if msg.get("atcion") == "PING":
+            if CP_ID is None and "cp_id" in msg:
+                CP_ID = msg["cp_id"]
+                print (f"[Engine] Linked to CP_ID {CP_ID}")
+            response = {"pong": True, "kafka_ok": kafka_ok}
+            conn.sendall(json.dumps(response.encode()))
+    except Exception as e:
+        print(f"[Engine] Error handling monitor: {e}")
+    finally:
+        conn.close()
 
 def start_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
