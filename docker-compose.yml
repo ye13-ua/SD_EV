@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ev_net
-  # ----------------------- KAFKA -----------------------
+  # ----------------------- DB CONTROLLER -----------------------
   ev-db-controller:
     build: ./central/db-controller
     container_name: ev_db_controller

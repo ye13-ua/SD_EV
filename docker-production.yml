@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   # ----------------------- DATABASE -----------------------
   db:
@@ -16,74 +18,106 @@ services:
       - ev_net
 
   # ----------------------- KAFKA -----------------------
-  
   zookeeper:
-    image: bitnami/zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.5.3
     container_name: ev_zookeeper
     environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
     networks:
       - ev_net
 
   kafka:
-    image: bitnami/kafka:latest
+    image: confluentinc/cp-kafka:7.5.3
     container_name: ev_kafka
     depends_on:
       - zookeeper
     environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
       - "9092:9092"
     networks:
       - ev_net
 
   # ----------------------- CENTRAL -----------------------
+  #central:
+  #  build: ./central/backend
+  #  container_name: ev_central
+  #  restart: always
+  #  depends_on:
+  #    - db
+  #    - kafka
+  #  environment:
+  #    DB_HOST: db
+  #    DB_PORT: 5432
+  #    DB_NAME: evcharging
+  #    DB_USER: usuario
+  #    DB_PASSWORD: contraseña
+  #    KAFKA_BOOTSTRAP: kafka:9092
+  #    CENTRAL_PORT: 8000
+  #  ports:
+  #    - "8000:8000"
+  #  volumes:
+  #    - ./central/backend:/app
+  #  networks:
+  #    - ev_net
+  #  command: python EV_Central.py
+
+  # Dummy central
   central:
-    build: ./central
+    build: ./charging_point
     container_name: ev_central
     restart: always
     depends_on:
-      - db
       - kafka
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: evcharging
-      DB_USER: usuario
-      DB_PASSWORD: contraseña
       KAFKA_BOOTSTRAP: kafka:9092
-      CENTRAL_PORT: 8000
+      CENTRAL_PORT: 9000
     ports:
-      - "8000:8000"
-    volumes:
-      - ./central:/app
-    networks:
-      - ev_net
-    command: python central.py
-
-  # ----------------------- CHARGING POINTS -----------------------
-  cp:
-    build: ./charging_point
-    container_name: ev_cp1
-    restart: always
-    depends_on:
-      - central
-    environment:
-      CENTRAL_HOST: central
-      CENTRAL_PORT: 8000
-      ENGINE_PORT: 7000
-      KAFKA_BOOTSTRAP: kafka:9092
+      - "9000:9000"
     volumes:
       - ./charging_point:/app
     networks:
       - ev_net
-    command: python engine.py
+    command: python dummy_central.py
+
+
+  # ----------------------- CHARGING POINTS -----------------------
+  cp_engine:
+    build: ./charging_point
+    container_name: ev_cp_engine
+    command: python EV_CP_E.py
+    environment:
+      - ENGINE_PORT=7000
+      - KAFKA_BROKER=kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - ev_net
+
+  cp_monitor:
+    build: ./charging_point
+    container_name: ev_cp_monitor
+    command: python EV_CP_M.py
+    environment:
+      - ENGINE_HOST=ev_cp_engine
+      - ENGINE_PORT=7000
+      - CENTRAL_HOST=ev_central
+      - CENTRAL_PORT=8000
+      - KAFKA_BROKER=kafka:9092
+      - UUID_PATH=/app/cp_uuid.json
+    depends_on:
+      - cp_engine
+      - central
+    networks:
+      - ev_net
 
   # ----------------------- DRIVERS -----------------------
   driver1:
@@ -100,7 +134,7 @@ services:
       - ./driver:/app
     networks:
       - ev_net
-    command: python driver.py
+    command: python EV_Driver.py
 
   driver2:
     build: ./driver
@@ -116,7 +150,7 @@ services:
       - ./driver:/app
     networks:
       - ev_net
-    command: python driver.py
+    command: python EV_Driver.py
 
 # ----------------------- VOLUMES & NETWORKS -----------------------
 volumes:
