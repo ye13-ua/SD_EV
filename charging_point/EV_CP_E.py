@@ -1,3 +1,14 @@
+##### EV_CP_Engine ##############################################################################################
+# ENV definitions:                                                                                              #
+# Default Kafka Broker -> kafka:9092 || "kafka" in "kafka:9092" being the docker container running kafka server #
+# Default Engine port -> 7000        || ie. each monitor connects to it's respective engine via "7000"          #
+# Docker network env. -> ev_net                                                                                 #
+# Execution prompt -> "python EV_CP_E.py"                                                                       #
+#                                                                                                               #
+# env. dependencies -> kafka                                                                                    #
+#################################################################################################################
+
+# Default libs
 import socket
 import time
 import json
@@ -5,6 +16,8 @@ import os
 import threading
 # Kafka
 from kafka import KafkaProducer, KafkaConsumer
+#GUI 
+import tkinter as tk
 
 # Config
 HOST = "0.0.0.0"
@@ -12,7 +25,7 @@ PORT = int(os.getenv("ENGINE_PORT","7000"))
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 CP_ID = None
 
-# stub
+# Estado de conexión a kafka, no tiene nada que ver con la habilidad de recibir/enviar mensajes, solo conexión
 kafka_ok = True
 
 # Kafka
@@ -49,8 +62,11 @@ def handle_monitor(conn):
     finally:
         conn.close()
 
+# Listens for kafka topic commands
 def listen_central_commands():
+    # Attempting to connect to cafca and retrieve topic relevant data
     try:
+        # Consumer definition
         consumer = KafkaConsumer(
             "central_cmd",
             bootstrap_servers=KAFKA_BROKER,
@@ -58,15 +74,19 @@ def listen_central_commands():
             group_id="cp_engines"
         )
         print(f"[Engine] Listening for commands from Central via Kafka...")
+        # For each message we retrieve we process it accordingly
         for message in consumer:
+            # Retrieve the targer value
             cmd = message.value
             target = cmd.get("target")
+            # If we are a/the target we react accordingly
             if target in [CP_ID, "ALL"]:
                 print(f"[Engine] Received command from Central: {cmd}")
                 handle_command(cmd)
     except Exception as e:
         print(f"[Engine] Kafka consumer error: {e}")
 
+# Handles command recieved via kafka from the central
 def handle_command(cmd):
     action = cmd.get("action", "").upper()
     if action == "STOP":
@@ -76,25 +96,37 @@ def handle_command(cmd):
     else:
         print(f"[Engine] Unknown command action: {action}")
 
+# Publishes the active status of the charging point including error traces
 def publish_status(status):
+    # If the kafka server/connection is faulty we abort
     if not kafka_ok:
         return
+    # Status message containing the id, status and timestamp
     msg = {"cp_id": CP_ID, "status": status, "timestamp": time.time()}
     try:
+        # Sending the status via kafka
         producer.send("cp_status", msg)
         producer.flush()
         print(f"[Engine] Published status: {msg}")
     except Exception as e:
         print(f"[Engine] Kafka publish error: {e}")
 
+# Defacto main function
 def start_server():
+    # Initialize sockets
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((HOST,PORT))
     s.listen()
     print(f"[{CP_ID}] Engine listening on port {PORT}")
 
+    # Creating a thread to listen for central commands
     threading.Thread(target=listen_central_commands, daemon=True).start()
 
+    # GUI
+    window = tk.Tk()
+    window.title(f"CP_Engine {CP_ID}")
+
+    # Monitor will persistently check the status via pings after connecting via sockets
     while True:
         conn, _ = s.accept()
         # For each time we need to handle the monitor, we spawn a thread

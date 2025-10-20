@@ -18,6 +18,7 @@ services:
       - ev_net
 
   # ----------------------- KAFKA -----------------------
+  # TODO skip zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
     container_name: ev_zookeeper
