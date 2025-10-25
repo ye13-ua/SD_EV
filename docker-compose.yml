@@ -15,11 +15,12 @@ services:
     networks:
       - ev_net
   # ----------------------- DB CONTROLLER -----------------------
-  ev-db-controller:
-    build: ./central/db-controller
-    container_name: ev_db_controller
+  central:
+    build: ./central
+    container_name: central
     depends_on:
       - db
+#      - kafka
     ports:
       - "4000:4000"
     networks:
@@ -27,43 +28,7 @@ services:
     command: npm run start
   # ----------------------- KAFKA -----------------------
   
-  # ----------------------- CENTRAL -----------------------
-  central:
-    build: ./central/backend
-    container_name: ev_central
-    restart: always
-    depends_on:
-      - db
-      - ev-db-controller
-#      - kafka
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: evcharging
-      DB_USER: usuario
-      DB_PASSWORD: contraseña
-      KAFKA_BOOTSTRAP: kafka:9092
-      CENTRAL_PORT: 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./central:/app/backend
-    networks:
-      - ev_net
-    command: python EV_Central.py
 
-  # ----------------------- NODE FRONTEND -----------------------
-  front:
-    build: ./central/frontend
-    container_name: ev_frontend
-    depends_on:
-      - db
-      - central
-    ports:
-      - "3000:3000"
-    networks:
-      - ev_net
-    command: npm run start
   # ----------------------- CHARGING POINTS -----------------------
 
   # ----------------------- VOLUMES & NETWORKS -----------------------

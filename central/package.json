@@ -1,7 +1,7 @@
 {
-  "name": "db-controller",
+  "name": "central",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.mjs",
   "type": "module",
   "scripts": {
     "start:dev": "node --watch ./src/app.mjs",
