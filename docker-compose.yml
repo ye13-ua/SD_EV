@@ -18,6 +18,13 @@ services:
   central:
     build: ./central
     container_name: central
+    environment:
+      DB_HOST: "db"
+      DB_PORT: 5432
+      DB_NAME: "evcharging"
+      DB_USER: "usuario"
+      DB_PASSWORD: "contraseña"
+      KAFKA_BOOTSTRAP: "kafka:9092"
     depends_on:
       - db
       - kafka
@@ -27,16 +34,16 @@ services:
       - ev_net
     command: npm run start
   # ----------------------- KAFKA -----------------------
-    zookeeper:
-      image: confluentinc/cp-zookeeper:7.5.3
-      container_name: ev_zookeeper
-      environment:
-        ZOOKEEPER_CLIENT_PORT: 2181
-        ZOOKEEPER_TICK_TIME: 2000
-      ports:
-        - "2181:2181"
-      networks:
-        - ev_net
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ev_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ev_net
 
   kafka:
     image: confluentinc/cp-kafka:7.5.3
@@ -54,9 +61,6 @@ services:
       - "9092:9092"
     networks:
       - ev_net
-    volumes:
-      - kafka_data:/bitnami/kafka
-
   # ----------------------- CHARGING POINTS -----------------------
 
   # ----------------------- VOLUMES & NETWORKS -----------------------
