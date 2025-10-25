@@ -20,20 +20,50 @@ services:
     container_name: central
     depends_on:
       - db
-#      - kafka
+      - kafka
     ports:
       - "4000:4000"
     networks:
       - ev_net
     command: npm run start
   # ----------------------- KAFKA -----------------------
-  
+    zookeeper:
+      image: confluentinc/cp-zookeeper:7.5.3
+      container_name: ev_zookeeper
+      environment:
+        ZOOKEEPER_CLIENT_PORT: 2181
+        ZOOKEEPER_TICK_TIME: 2000
+      ports:
+        - "2181:2181"
+      networks:
+        - ev_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ev_kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - ev_net
+    volumes:
+      - kafka_data:/bitnami/kafka
 
   # ----------------------- CHARGING POINTS -----------------------
 
   # ----------------------- VOLUMES & NETWORKS -----------------------
 volumes:
   postgres_data:
+  
+  kafka_data:
 
 networks:
   ev_net:
