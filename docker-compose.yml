@@ -25,6 +25,7 @@ services:
       DB_USER: "usuario"
       DB_PASSWORD: "contraseña"
       KAFKA_BOOTSTRAP: "kafka:9092"
+      
     depends_on:
       - db
       - kafka
