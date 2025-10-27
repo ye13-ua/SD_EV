@@ -3,13 +3,12 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-const kafka = new Kafka({
+const kafkaInstance = new Kafka({
     clientId: "EV_Central",
-    brokers: [process.env.KAFKA_BOOTSTRAP]
-
+    brokers: [process.env.KAFKA_BOOTSTRAP],
 })
 
-const producer = kafka.producer();
+const producer = kafkaInstance.producer();
 
 export async function produceMessage(topic, message) {
     await producer.connect();

@@ -48,16 +48,16 @@ export const  createApp = async ({model}) => {
 async function runKafka() {
   await ensureTopic("test-topic")
   
-  await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
   await consumeMessage("test-topic");
+  await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
   
 }
 
 kafkaEmitter.on("Mensaje-Kafka", ({topic, partition, value}) => {
-  console.log('⚡ Evento recibido en app.mjs:');
-  console.log(`   🧩 Topic: ${topic}`);
-  console.log(`   🔢 Partición: ${partition}`);
-  console.log(`   💬 Mensaje: ${value}`);
+  console.log(' Evento recibido en app.mjs:');
+  console.log(` Mensaje: ${value}`);
+  console.log(` Topico: ${topic}`)
+  console.log(` Partición: ${partition}`)
 }) 
 
 runKafka().catch(console.error)

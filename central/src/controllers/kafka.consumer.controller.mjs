@@ -4,16 +4,17 @@ import EventEmitter from "node:events"
 
 dotenv.config()
 
+const kafkaInstance = new Kafka({
+    clientId: "EV_Central",
+    brokers: [process.env.KAFKA_BOOTSTRAP],
+})
+
 export const kafkaEmitter = new EventEmitter();
 
-const kafka = new Kafka({
-    clientId: "EV_Central",
-    brokers: [process.env.KAFKA_BOOTSTRAP]
-})
+
 //TODO Verificar groupID
-const consumer = kafka.consumer({ groupId: "central_cmd"})
 
-
+const consumer = kafkaInstance.consumer({ groupId: "central_cmd"})
 
 export async function consumeMessage(topic) {
 
@@ -24,14 +25,16 @@ export async function consumeMessage(topic) {
 
     await consumer.run({
         eachMessage: async ({ topic, partition, message }) => {
-            msg = message.value.toJSON();
+            const msg = message.value.toString();
             
             console.log(`Recibido: ${msg}`);
+            
             kafkaEmitter.emit("Mensaje-Kafka", {
                 topic,
                 partition,
                 value: msg
             })
+            
         },
     });
 

@@ -2,16 +2,15 @@ export * from "./kafka.consumer.controller.mjs"
 export * from "./kafka.producer.controller.mjs"
 
 import { Kafka } from "kafkajs";
-import dotenv from "dotenv"
 
-const kafka = new Kafka({
+const kafkaInstance = new Kafka({
     clientId: "EV_Central",
-    brokers: [process.env.KAFKA_BOOTSTRAP]
+    brokers: [process.env.KAFKA_BOOTSTRAP],
+  })
 
-})
-
+    
 export async function ensureTopic(topic) {
-  const admin = kafka.admin();
+  const admin = kafkaInstance.admin();
   await admin.connect();
   const topics = await admin.listTopics();
 
