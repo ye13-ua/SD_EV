@@ -11,19 +11,12 @@ const kafka = new Kafka({
 export async function produceMessage(message) {
     const producer = kafka.producer();
     await producer.connect();
-
+    // TODO cambiar el topico, sacar de env
     await producer.send({
-        //topic: ,
+        topic: "test-topic",
         messages: [{ value: message}]
     })
 
     console.log("Enviando mensaje", message);
     await producer.disconnect()
 }
-
-export async function consumeMessage() {
-    const consumer = kafka.consumer({ groupId: "central_cmd"})
-}
-
-
-
