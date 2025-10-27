@@ -11,7 +11,7 @@ import express from "express";
 import { createCPRouter } from "./routes/CP.routes.mjs";
 import { postgreModel } from "./models/postgre/postgre.mjs";
 import { sequelize } from "./db/connection.mjs";
-
+import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter } from "./controllers/kafka.controller.mjs"
 
 export const  createApp = async ({model}) => {
   const app = express();
@@ -39,6 +39,25 @@ export const  createApp = async ({model}) => {
   app.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
   });
+
+
+
+}
+//createApp({model: postgreModel})
+
+async function runKafka() {
+  await ensureTopic("test-topic")
+  
+  await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
+  await consumeMessage("test-topic");
+  
 }
 
-createApp({model: postgreModel})
+kafkaEmitter.on("Mensaje-Kafka", ({topic, partition, value}) => {
+  console.log('⚡ Evento recibido en app.mjs:');
+  console.log(`   🧩 Topic: ${topic}`);
+  console.log(`   🔢 Partición: ${partition}`);
+  console.log(`   💬 Mensaje: ${value}`);
+}) 
+
+runKafka().catch(console.error)

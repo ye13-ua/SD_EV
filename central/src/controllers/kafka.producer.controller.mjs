@@ -6,14 +6,16 @@ dotenv.config()
 const kafka = new Kafka({
     clientId: "EV_Central",
     brokers: [process.env.KAFKA_BOOTSTRAP]
+
 })
 
-export async function produceMessage(message) {
-    const producer = kafka.producer();
+const producer = kafka.producer();
+
+export async function produceMessage(topic, message) {
     await producer.connect();
-    // TODO cambiar el topico, sacar de env
+
     await producer.send({
-        topic: "test-topic",
+        topic: topic,
         messages: [{ value: message}]
     })
 

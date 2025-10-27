@@ -1,24 +1,39 @@
 import { Kafka } from "kafkajs";
 import dotenv from "dotenv"
+import EventEmitter from "node:events"
 
 dotenv.config()
+
+export const kafkaEmitter = new EventEmitter();
 
 const kafka = new Kafka({
     clientId: "EV_Central",
     brokers: [process.env.KAFKA_BOOTSTRAP]
 })
+//TODO Verificar groupID
+const consumer = kafka.consumer({ groupId: "central_cmd"})
 
-export async function consumeMessage() {
-    const consumer = kafka.consumer({ groupId: "central_cmd"})
+
+
+export async function consumeMessage(topic) {
+
     await consumer.connect();
     // TODO cambiar el topico, sacar de env
-    await consumer.subscribe({ topic: "test-topic", fromBeginning: true})
+    await consumer.subscribe({ topic: topic, fromBeginning: true})
 
 
     await consumer.run({
         eachMessage: async ({ topic, partition, message }) => {
-            console.log(`Recibido: ${message.value.toString()}`);
+            msg = message.value.toJSON();
+            
+            console.log(`Recibido: ${msg}`);
+            kafkaEmitter.emit("Mensaje-Kafka", {
+                topic,
+                partition,
+                value: msg
+            })
         },
     });
 
 }
+
