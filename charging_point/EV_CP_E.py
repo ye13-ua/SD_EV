@@ -14,6 +14,10 @@ import time
 import json
 import os
 import threading
+
+# Traffic lights for multithread editing of the states
+from threading import Lock
+
 # Kafka
 from kafka import KafkaProducer, KafkaConsumer
 #GUI 
@@ -27,6 +31,7 @@ CP_ID = None
 
 # Estado de conexión a kafka, no tiene nada que ver con la habilidad de recibir/enviar mensajes, solo conexión
 kafka_ok = True
+CP_STATUS = "AUTH_PENDING"
 
 # Kafka
 try:
@@ -47,16 +52,21 @@ def handle_monitor(conn):
         if not data:
             return
         msg = json.loads(data.decode())
+        action = msg.get("action")
 
-        if msg.get("action") == "PING":
-            if CP_ID is None and "cp_id" in msg:
-                CP_ID = msg["cp_id"]
-                print (f"[Engine] Linked to CP_ID {CP_ID}")
-            response = {"pong": True, "kafka_ok": kafka_ok}
+        if action == "PING":
+            response = {"status": CP_STATUS, "kafka_ok": kafka_ok}
             conn.sendall(json.dumps(response).encode())
-
             if CP_ID:
                 publish_status("ACTIVE")
+        elif action == "AUTH":
+            if CP_ID is None and "cp_id" in msg:
+                CP_ID = msg["cp_id"]
+                CP_STATUS = "AUTH SUCCESS"
+                print (f"[Engine] Linked to CP_ID {CP_ID}")
+            response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
+            conn.sendall(json.dumps(response).encode())
+
     except Exception as e:
         print(f"[Engine] Error handling monitor: {e}")
     finally:
@@ -73,7 +83,7 @@ def listen_central_commands():
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             group_id="cp_engines"
         )
-        print(f"[Engine] Listening for commands from Central via Kafka...")
+        print(f"[Engine] Listening for commands from CENTRAL via Kafka...")
         # For each message we retrieve we process it accordingly
         for message in consumer:
             # Retrieve the targer value
@@ -82,12 +92,12 @@ def listen_central_commands():
             # If we are a/the target we react accordingly
             if target in [CP_ID, "ALL"]:
                 print(f"[Engine] Received command from Central: {cmd}")
-                handle_command(cmd)
+                handle_central_command(cmd)
     except Exception as e:
-        print(f"[Engine] Kafka consumer error: {e}")
+        print(f"[Engine] Kafka-Central consumer error: {e}")
 
 # Handles command recieved via kafka from the central
-def handle_command(cmd):
+def handle_central_command(cmd):
     action = cmd.get("action", "").upper()
     if action == "STOP":
         publish_status("OUT_OF_SERVICE")
@@ -110,6 +120,16 @@ def publish_status(status):
         print(f"[Engine] Published status: {msg}")
     except Exception as e:
         print(f"[Engine] Kafka publish error: {e}")
+
+# stub
+# Simulates breakdown or other issue
+def simulate_local_fault():
+    return False
+
+# stub
+# Simulates using the CP's own interface to recharge the car
+def simulate_local_use():
+    return False
 
 # Defacto main function
 def start_server():
