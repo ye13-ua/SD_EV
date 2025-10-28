@@ -54,7 +54,6 @@ async function runKafka() {
 }
 
 kafkaEmitter.on("Mensaje-Kafka", ({topic, partition, value}) => {
-  console.log(' Evento recibido en app.mjs:');
   console.log(` Mensaje: ${value}`);
   console.log(` Topico: ${topic}`)
   console.log(` Partición: ${partition}`)
