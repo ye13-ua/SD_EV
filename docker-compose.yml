@@ -26,6 +26,8 @@ services:
       DB_PASSWORD: "contraseña"
       KAFKA_BOOTSTRAP: "kafka:9092"
       
+      KAFKA_TOPIC_CP_CENTRAL_CREATE: "t_cp_central_create"
+      KAFKA_TOPIC_CENTRAL_CP_CMD: "t_central_cp_cmd"
     depends_on:
       kafka:
         condition: service_healthy
@@ -60,7 +62,6 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    
     healthcheck:
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/9092"]
       interval: 10s

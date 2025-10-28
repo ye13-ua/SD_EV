@@ -1,4 +1,4 @@
-import { Kafka } from "kafkajs";
+import { Kafka, logLevel } from "kafkajs";
 import dotenv from "dotenv"
 import EventEmitter from "node:events"
 
@@ -7,6 +7,7 @@ dotenv.config()
 const kafkaInstance = new Kafka({
     clientId: "EV_Central",
     brokers: [process.env.KAFKA_BOOTSTRAP],
+    logLevel: logLevel.ERROR
 })
 
 export const kafkaEmitter = new EventEmitter();

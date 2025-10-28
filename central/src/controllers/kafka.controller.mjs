@@ -1,11 +1,12 @@
 export * from "./kafka.consumer.controller.mjs"
 export * from "./kafka.producer.controller.mjs"
 
-import { Kafka } from "kafkajs";
+import { Kafka, logLevel } from "kafkajs";
 
 const kafkaInstance = new Kafka({
     clientId: "EV_Central",
     brokers: [process.env.KAFKA_BOOTSTRAP],
+    logLevel: logLevel.ERROR
   })
 
     
@@ -16,7 +17,9 @@ export async function ensureTopic(topic) {
 
   if (!topics.includes(topic)) {
     await admin.createTopics({ topics: [{ topic }] });
-    console.log(`Topico "${topic}" creado.`);
+    
+    
+    //console.log(`Topico "${topic}" creado.`);
   }
 
   await admin.disconnect();

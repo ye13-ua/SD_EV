@@ -1,4 +1,4 @@
-import { Kafka } from "kafkajs";
+import { Kafka, logLevel } from "kafkajs";
 import dotenv from "dotenv"
 
 dotenv.config()
@@ -6,6 +6,7 @@ dotenv.config()
 const kafkaInstance = new Kafka({
     clientId: "EV_Central",
     brokers: [process.env.KAFKA_BOOTSTRAP],
+    logLevel: logLevel.ERROR
 })
 
 const producer = kafkaInstance.producer();

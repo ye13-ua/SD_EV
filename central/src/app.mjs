@@ -12,6 +12,9 @@ import { createCPRouter } from "./routes/CP.routes.mjs";
 import { postgreModel } from "./models/postgre/postgre.mjs";
 import { sequelize } from "./db/connection.mjs";
 import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter } from "./controllers/kafka.controller.mjs"
+import dotenv from "dotenv"
+
+dotenv.config()
 
 export const  createApp = async ({model}) => {
   const app = express();
@@ -43,20 +46,40 @@ export const  createApp = async ({model}) => {
 
 
 }
-//createApp({model: postgreModel})
+
+const {KAFKA_TOPIC_CP_CENTRAL_CREATE, KAFKA_TOPIC_CENTRAL_CP_CMD} = process.env;
 
 async function runKafka() {
-  await ensureTopic("test-topic")
+
+
+  await ensureTopic(KAFKA_TOPIC_CP_CENTRAL_CREATE)
+  await ensureTopic(KAFKA_TOPIC_CENTRAL_CP_CMD)
   
-  await consumeMessage("test-topic");
-  await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
+  await consumeMessage(KAFKA_TOPIC_CP_CENTRAL_CREATE);
+  
+  
+  
+  //await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
   
 }
 
 kafkaEmitter.on("Mensaje-Kafka", ({topic, partition, value}) => {
+  switch (topic) {
+    //TODO Crear ITEM
+    case KAFKA_TOPIC_CP_CENTRAL_CREATE:
+      
+
+    break;
+
+  }
+  
+  
+  
   console.log(` Mensaje: ${value}`);
   console.log(` Topico: ${topic}`)
   console.log(` Partición: ${partition}`)
 }) 
 
 runKafka().catch(console.error)
+
+createApp({model: postgreModel})
