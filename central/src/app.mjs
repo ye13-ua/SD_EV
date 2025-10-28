@@ -21,7 +21,15 @@ export const  createApp = async ({model}) => {
   await sequelize.sync({force: true}); //TODO Quitar force 
   const PORT = process.env.PORT ?? 4000;
 
+
+  app.set("view engine", "ejs");
+  app.set("views", "./src/views")
+
+  
+  app.use(express.static("public"));
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
   app.disable("x-powered-by");
   //TODO Eliminar
   app.get("/", (req, res) => {
@@ -36,7 +44,7 @@ export const  createApp = async ({model}) => {
 
     next();
   })
-  //TODO Implementar metodo que pase de cola a http
+
   app.use("/CPs",createCPRouter({CPModel: model.CPModel}))
 
   app.listen(PORT, () => {

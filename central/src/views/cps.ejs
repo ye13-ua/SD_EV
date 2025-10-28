@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Lista de productos</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    .producto {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>CPS</h1>
+    
+  <% if (readedCPs.error) { %>
+    <p>NO HAY DATOS</p>
+  <% } else { %>
+    <% readedCPs.forEach(cp => { %>
+      <div class="producto">
+        <h2><%= cp.ID_UUID %></h2>
+        <p>ubicacion: <%= cp.Ubicacion %> €</p>
+        <p><%= cp.Precio_KWH %></p>
+      </div>
+    <% }) %>
+  <% } %>
+</body>
+</html>

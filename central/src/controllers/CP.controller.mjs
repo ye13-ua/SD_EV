@@ -5,13 +5,11 @@ export class CPController {
 
     ReadAll = async (req, res) => {
         const readedCPs = await this.CPModel.ReadAll();
-       
+        //TODO Renderizar los CPs
         if(!readedCPs) {
             return res.status(400).json({error: "Error al leer CP"})
-        } else if (readedCPs.error) {
-            return res.status(400).json({error: readedCPs.error})
         } else {
-            return res.status(201).json(readedCPs);
+            res.render("cps", {readedCPs});
         }        
     }
 
