@@ -4,6 +4,8 @@ import express from "express";
 import { createCPRouter } from "./routes/CP.routes.mjs";
 import { postgreModel } from "./models/postgre/postgre.mjs";
 import { sequelize } from "./db/connection.mjs";
+//Para hacer post
+import axios from "axios"
 
 //kafka
 import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter } from "./controllers/kafka.controller.mjs"
@@ -25,7 +27,9 @@ export const createApp = async ({model}) => {
   const app = express();
   
   //Borra la base de datos al iniciar la app: DEBUG
-  await sequelize.sync( /* {force: true} */); //TODO Quitar force 
+  await sequelize.sync(  
+    {force: true} 
+  ); //TODO Quitar force 
 
   //Puerto que se saca de 
   const PORT = process.env.PORT ?? 4000;
@@ -69,18 +73,41 @@ export const createApp = async ({model}) => {
   
   */
 
+  const CP_Central_Status_Socket = "socket1";
+  const CP_Central_Create_Socket = "socket2";
+  const CPsEndPoint = "http://localhost:4000/CPs";
 
   io.on("connection", (socket) => {
     console.log("Cliente conectado:", socket.id);
     
-    //TODO Implementar socker de escucha para datos de Engine
-    //socket.on("")
+    // Socket que se encarga en crear los CPS
+
+    //TODO Probar
+    socket.on(CP_Central_Create_Socket, async (data) => {
+      try{
+        const response = await axios.post(CPsEndPoint, data);
+        if(!response.data.error) {
+          console.log("CP Creado =",response.data.ID_UUID);
+
+          //AQUI SE DEBERIA DE ENVIAR UN STATUS CREATED
+
+        } else {
+          console.log("Fallo al crear CP =",response.data.error);
+        } 
+      } catch (err) {
+        console.log("Error al enviar los datos",err.message);
+      }
+    })
 
     const data = {
       test: socket.id
     }
 
+    socket.on(CP_Central_Status_Socket, (data) => {
+      
+      //ENVIAR LOS DATOS AL SOCKET DE FRONT (cps.ejs), hacer que se mezcle con los datos de la base de datos
     
+    })
 
     io.emit("NuevaConexion", data)
 
