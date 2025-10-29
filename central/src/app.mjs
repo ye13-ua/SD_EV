@@ -50,12 +50,35 @@ export const createApp = async ({model}) => {
 
   //Implmentar
 
+
+  /*
+    DATOS DESDE MOTOR (Python) 
+    {
+      ID_UUID: "XXX"
+      Estado: 1,2,3,4,5
+      
+      -> Si 3:
+      Vehiculo: {
+        Id:
+        Carga:
+        PrecioCarga:
+      }
+      -> fin si
+    }
+  
+  
+  */
+
+
   io.on("connection", (socket) => {
     console.log("Cliente conectado:", socket.id);
     
     const data = {
       test: "XDXD"
     }
+
+    
+
     io.emit("NuevaConexion", data)
 
     socket.on("disconnect", () => {
