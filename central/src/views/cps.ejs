@@ -4,12 +4,21 @@
   <meta charset="UTF-8">
   <title>Central Controller</title>
   <style>
+    *, ::before, ::after {
+      box-sizing: border-box;
+    }
     body { 
       font-family: sans-serif;
-      margin: 2rem; 
+      margin: 2rem;
+    }
+    .Cps-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr); /* 5 columnas iguales */
+      gap: 10px; /* separación entre items */
+      padding: 10px;
     }
     .Cps {
-      background: #f9f9f9;
+      background: darkgray;
       border: 1px solid #ddd;
       padding: 10px;
       margin-bottom: 10px;
@@ -25,14 +34,21 @@
   <% if (readedCPs.error) { %>
     <p>Base de datos vacia</p>
   <% } else { %>
-    <% readedCPs.forEach(cp => { %>
-      <div class="Cps">
-        <h2><%= cp.ID_UUID %></h2>
-        <p>ubicacion: <%= cp.Ubicacion %></p>
-        <p>ubicacion: <%= cp.UbicacionLarga %> </p>
-        <p><%= cp.Precio_KWH %></p>
-      </div>
-    <% }) %>
+    <div class="Cps-container">
+      <% readedCPs.forEach(cp => { %>
+        <div class="Cps">
+          <h2><%= cp.Ubicacion %></h2>
+          <p>Id CP: <%= cp.ID_UUID %></p>
+          <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
+          <p>Precio: <%= cp.Precio_KWH %> KW/h</p>
+          <div>
+            <button>Boton 1</button>
+            <button>Boton 2</button>
+            <button>Boton 3</button>
+          </div>
+        </div>
+      <% }) %>
+    </div>
   <% } %>
   <script>
     const socker = io();

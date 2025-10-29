@@ -25,7 +25,7 @@ export const createApp = async ({model}) => {
   const app = express();
   
   //Borra la base de datos al iniciar la app: DEBUG
-  await sequelize.sync({force: true}); //TODO Quitar force 
+  await sequelize.sync( /* {force: true} */); //TODO Quitar force 
 
   //Puerto que se saca de 
   const PORT = process.env.PORT ?? 4000;
@@ -55,9 +55,9 @@ export const createApp = async ({model}) => {
     DATOS DESDE MOTOR (Python) 
     {
       ID_UUID: "XXX"
-      Estado: 1,2,3,4,5
+      Estado: "CHARGING"
       
-      -> Si 3:
+      -> Si CHARGING:
       Vehiculo: {
         Id:
         Carga:
@@ -73,8 +73,11 @@ export const createApp = async ({model}) => {
   io.on("connection", (socket) => {
     console.log("Cliente conectado:", socket.id);
     
+    //TODO Implementar socker de escucha para datos de Engine
+    //socket.on("")
+
     const data = {
-      test: "XDXD"
+      test: socket.id
     }
 
     
