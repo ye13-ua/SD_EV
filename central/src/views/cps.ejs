@@ -2,10 +2,13 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Lista de productos</title>
+  <title>Central Controller</title>
   <style>
-    body { font-family: sans-serif; margin: 2rem; }
-    .producto {
+    body { 
+      font-family: sans-serif;
+      margin: 2rem; 
+    }
+    .Cps {
       background: #f9f9f9;
       border: 1px solid #ddd;
       padding: 10px;
@@ -13,20 +16,31 @@
       border-radius: 6px;
     }
   </style>
+  <script src="/socket.io/socket.io.js"></script>
+
 </head>
 <body>
   <h1>CPS</h1>
     
   <% if (readedCPs.error) { %>
-    <p>NO HAY DATOS</p>
+    <p>Base de datos vacia</p>
   <% } else { %>
     <% readedCPs.forEach(cp => { %>
-      <div class="producto">
+      <div class="Cps">
         <h2><%= cp.ID_UUID %></h2>
-        <p>ubicacion: <%= cp.Ubicacion %> €</p>
+        <p>ubicacion: <%= cp.Ubicacion %></p>
+        <p>ubicacion: <%= cp.UbicacionLarga %> </p>
         <p><%= cp.Precio_KWH %></p>
       </div>
     <% }) %>
   <% } %>
+  <script>
+    const socker = io();
+
+    socker.on("NuevaConexion", (data) => {
+      console.log("HOLA MUNDO CABEZA POLLA")
+      console.log(data.test)
+    })
+  </script>
 </body>
 </html>

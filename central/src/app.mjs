@@ -1,39 +1,74 @@
-/**
- * MODULO X
- * CONTROLADOR V
- * ENRUTADOR X
- * ESQUEMA V
- * CONFIG
- */
 
-
+//servidor http
 import express from "express";
 import { createCPRouter } from "./routes/CP.routes.mjs";
 import { postgreModel } from "./models/postgre/postgre.mjs";
 import { sequelize } from "./db/connection.mjs";
+
+//kafka
 import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter } from "./controllers/kafka.controller.mjs"
+
+//.env
 import dotenv from "dotenv"
+
+//sockets
+import {Server} from "socket.io"
+import { createServer } from "node:http";
+import os from "os"
 
 dotenv.config()
 
-export const  createApp = async ({model}) => {
+export const createApp = async ({model}) => {
+  
+  //--------------------------------- DB CONTROLLER ---------------------------------
+  //crea un servidor http con express
   const app = express();
+  
+  //Borra la base de datos al iniciar la app: DEBUG
   await sequelize.sync({force: true}); //TODO Quitar force 
+
+  //Puerto que se saca de 
   const PORT = process.env.PORT ?? 4000;
 
-
+  //Para el view de los datos
   app.set("view engine", "ejs");
-  app.set("views", "./src/views")
-
-  
+  app.set("views", "./src/views")  
   app.use(express.static("public"));
+
+  //Para que la app use json
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  //Para que el envio de los datos en json no muestre info sobre la app
   app.disable("x-powered-by");
-  //TODO Eliminar
+  
+  //--------------------------------- SOCKETS ---------------------------------
+
+  const server = createServer(app);
+
+  const io = new Server(server, {connectionStateRecovery: {}})
+
+  //Implmentar
+
+  io.on("connection", (socket) => {
+    console.log("Cliente conectado:", socket.id);
+    
+    const data = {
+      test: "XDXD"
+    }
+    io.emit("NuevaConexion", data)
+
+    socket.on("disconnect", () => {
+      console.log("Cliente desconectado", socket.id)
+    })
+  })
+  
+  //--------------------------------- REST ---------------------------------
+
+
   app.get("/", (req, res) => {
-    res.send("Hola mundo");
+    //Aqui se conecta para controlar la central
+    res.redirect("localhost:4000/CPs")
   });
 
   app.use((req, res, next) => {
@@ -47,13 +82,15 @@ export const  createApp = async ({model}) => {
 
   app.use("/CPs",createCPRouter({CPModel: model.CPModel}))
 
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
   });
 
 
 
 }
+
+ //--------------------------------- KAFKA ---------------------------------
 
 const {KAFKA_TOPIC_CP_CENTRAL_CREATE, KAFKA_TOPIC_CENTRAL_CP_CMD} = process.env;
 

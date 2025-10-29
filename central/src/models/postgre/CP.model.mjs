@@ -12,6 +12,10 @@ export const CP = sequelize.define("CP",{
         type: DataTypes.STRING(100),
         allowNull: false
     },
+    UbicacionLarga: {
+        type: DataTypes.STRING(100),
+        allowNull: false
+    },
     Precio_KWH: {
         type: DataTypes.DOUBLE,
         allowNull: false

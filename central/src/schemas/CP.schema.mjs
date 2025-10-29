@@ -3,6 +3,7 @@ import z from "zod"
 const CPSchema = z.object({
     ID_UUID: z.uuid(),
     Ubicacion: z.string(),
+    UbicacionLarga: z.string(),
     Precio_KWH: z.float32()
 })
 
