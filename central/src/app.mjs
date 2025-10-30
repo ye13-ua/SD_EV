@@ -28,7 +28,7 @@ export const createApp = async ({model}) => {
   
   //Borra la base de datos al iniciar la app: DEBUG
   await sequelize.sync(  
-    {force: true} 
+    //{force: true} 
   ); //TODO Quitar force 
 
   //Puerto que se saca de 
