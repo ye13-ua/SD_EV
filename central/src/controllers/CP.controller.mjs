@@ -9,7 +9,10 @@ export class CPController {
         if(!readedCPs) {
             return res.status(400).json({error: "Error al leer CP"})
         } else {
-            res.render("cps", {readedCPs});
+            res.render("cps", {
+                readedCPs,
+                CP_Central_Status_Socket: process.env.CP_CENTRAL_STATUS_SOCKET
+            });
         }        
     }
 
