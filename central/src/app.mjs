@@ -98,8 +98,6 @@ export const createApp = async ({model}) => {
       }
     })
 
-    scoket
-
     socket.on("disconnect", () => {
       console.log("Cliente desconectado", socket.id)
     })
