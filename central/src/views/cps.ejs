@@ -18,6 +18,7 @@
       padding: 10px;
     }
     .Cps {
+      background: orange;
       background: darkgray;
       border: 1px solid #ddd;
       padding: 10px;
@@ -36,7 +37,7 @@
   <% } else { %>
     <div class="Cps-container">
       <% readedCPs.forEach(cp => { %>
-        <div class="Cps">
+        <div class="Cps" id="<% cp.ID_UUID %>">
           <h2><%= cp.Ubicacion %></h2>
           <p>Id CP: <%= cp.ID_UUID %></p>
           <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
@@ -52,9 +53,43 @@
   <% } %>
   <script>
     const socker = io();
-    socker.on("NuevaConexion", (data) => {
+    //CP_Central_Status_Socket -> este parametro llega como readedCPs, basicamente en el controlador (controllers/CP.Controller.mjs) se puede ver como funciona
+
+    //SOCKET QUE SE ENCARGARA DE CAMBIAR DE ESTADO CUANDO RECIBE DATOS
+    socket.on(CP_Central_Status_Socket, (data) => {      
+      
+      const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
+      
+        /*
+          Switch de cambio de estado.
+          ¿Porque no mira isChanged antes de aplicar los cambios?
+          Porque si tu recargas la pagina todos los estados se ponen en gris, y solo cambian de estado en caso de llege ese parametro del CP (Que solo llega si cambia de estado ofc)
+
+          Asumo que CP enviaran su estado cada x segundos, en ese caso tu recargas la pagina y todo se pone en desconectado, luego se conectan los sockets de CP y envian datos, tras esto ya se adopta el color correcto
+        */
+        switch(data.Estado) {
+          case "Desconectado" || 1:
+            cp.style.backgroundColor = "darkgray";
+          break;
+          case "Operativo" || 2:
+            cp.style.backgroundColor = "lightgreen";
+          break;
+          case "Cargando" || 3:
+            cp.style.backgroundColor = "darkgreen";
+          break;
+          case "Parado" || 4:
+            cp.style.backgroundColor = "orange";
+          break;
+          case "Error" || 5:
+            cp.style.backgroundColor = "red";
+          break;
+          default:
+            cp.style.backgroundColor = "darkgray";
+          break;
+      }
       
     })
+  
   </script>
 </body>
 </html>
