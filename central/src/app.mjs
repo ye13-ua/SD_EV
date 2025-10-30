@@ -8,17 +8,17 @@ import { sequelize } from "./db/connection.mjs";
 import axios from "axios"
 
 //kafka
-import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter } from "./controllers/kafka.controller.mjs"
+import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter, kafkaEvent } from "./controllers/kafka.controller.mjs"
 
 //.env
 import dotenv from "dotenv"
+dotenv.config()
 
 //sockets
 import {Server} from "socket.io"
 import { createServer } from "node:http";
-import os from "os"
 
-dotenv.config()
+
 
 export const createApp = async ({model}) => {
   
@@ -52,62 +52,53 @@ export const createApp = async ({model}) => {
 
   const io = new Server(server, {connectionStateRecovery: {}})
 
-  //Implmentar
-
-
   /*
     DATOS DESDE MOTOR (Python) 
     {
       ID_UUID: "XXX"
       Estado: "CHARGING"
       
-      -> Si CHARGING:
-      Vehiculo: {
-        Id:
-        Carga:
-        PrecioCarga:
-      }
       -> fin si
     }
-  
-  
   */
-
-  const CP_Central_Status_Socket = "socket1";
-  const CP_Central_Create_Socket = "socket2";
+  //Socket de creacion de CPS
+  const CP_Central_Create_Socket = process.env.CP_CENTRAL_CREATE_SOCKET;
+  //Socket de estado de CP
+  const CP_Central_Status_Socket = process.env.CP_CENTRAL_STATUS_SOCKET;
+  //Socket para enviar comandos desde el view a los CPS
+  const View_Central_CMD_Socket = process.env.VIEW_CENTRAL_CMD_SOCKET;
   const CPsEndPoint = "http://localhost:4000/CPs";
 
   io.on("connection", (socket) => {
+    
     console.log("Cliente conectado:", socket.id);
     
-    // Socket que se encarga en crear los CPS
-
     //TODO Probar
+    // Socket que se encarga en crear los CPS
     socket.on(CP_Central_Create_Socket, async (data) => {
       try{
         const response = await axios.post(CPsEndPoint, data);
         if(!response.data.error) {
-          console.log("CP Creado =",response.data.ID_UUID);
+          console.log("CP Creado ->",response.data.ID_UUID);
 
           //AQUI SE DEBERIA DE ENVIAR UN STATUS CREATED
 
         } else {
-          console.log("Fallo al crear CP =",response.data.error);
+          console.log("Fallo al crear CP ->",response.data.error);
         } 
       } catch (err) {
-        console.log("Error al enviar los datos",err.message);
+        console.log("Error al enviar los datos a la db ->",err.message);
       }
     })
-    //TODO probar saltarse este paso y leer directamente desde view
-    socket.on(CP_Central_Status_Socket, (data) => {      
-      /*
-        data {
-          id_uuid
-          estado
-        }
-      */
-      //ENVIAR LOS DATOS AL SOCKET DE FRONT (cps.ejs), hacer que se mezcle con los datos de la base de datos
+
+    //CP de estado para poner los cambios en la consola, isChanged sirve para que no imprima el cambio de estado cada vez que lleguen datos por este socket
+    socket.on(CP_Central_Status_Socket, (data) => {
+      if(data.isChanged){
+        console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.ID_UUID}`);
+      }
     })
+
+    scoket
 
     socket.on("disconnect", () => {
       console.log("Cliente desconectado", socket.id)
@@ -119,7 +110,7 @@ export const createApp = async ({model}) => {
 
   app.get("/", (req, res) => {
     //Aqui se conecta para controlar la central
-    res.redirect("localhost:4000/CPs")
+    res.redirect(CPsEndPoint);
   });
 
   app.use((req, res, next) => {
@@ -137,40 +128,27 @@ export const createApp = async ({model}) => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
   });
 
-
-
 }
 
  //--------------------------------- KAFKA ---------------------------------
 
-const {KAFKA_TOPIC_CP_CENTRAL_CREATE, KAFKA_TOPIC_CENTRAL_CP_CMD} = process.env;
+const {KAFKA_TOPIC_CENTRAL_CP_CMD} = process.env;
 
 async function runKafka() {
 
-
-  await ensureTopic(KAFKA_TOPIC_CP_CENTRAL_CREATE)
   await ensureTopic(KAFKA_TOPIC_CENTRAL_CP_CMD)
   
   await consumeMessage(KAFKA_TOPIC_CP_CENTRAL_CREATE);
   
-  
-  
-  //await produceMessage("test-topic", "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
-  
+
+
+  //await produceMessage(KAFKA_TOPIC_CENTRAL_CP_CMD, "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
 }
 
-kafkaEmitter.on("Mensaje-Kafka", ({topic, partition, value}) => {
+kafkaEmitter.on(kafkaEvent, ({topic, partition, value}) => {
   switch (topic) {
-    //TODO Crear ITEM
-    case KAFKA_TOPIC_CP_CENTRAL_CREATE:
-      
-
-    break;
-
+    
   }
-  
-  
-  
   console.log(` Mensaje: ${value}`);
   console.log(` Topico: ${topic}`)
   console.log(` Partición: ${partition}`)
