@@ -1,7 +1,4 @@
 import { Kafka, logLevel } from "kafkajs";
-import dotenv from "dotenv"
-
-dotenv.config()
 
 const kafkaInstance = new Kafka({
     clientId: "EV_Central",

@@ -1,8 +1,7 @@
 import { Kafka, logLevel } from "kafkajs";
-import dotenv from "dotenv"
 import EventEmitter from "node:events"
 
-dotenv.config()
+
 
 const kafkaInstance = new Kafka({
     clientId: "EV_Central",
@@ -11,7 +10,7 @@ const kafkaInstance = new Kafka({
 })
 
 export const kafkaEmitter = new EventEmitter();
-
+export const kafkaEvent = "Mensaje-Kafka";
 
 //TODO Verificar groupID
 
@@ -30,7 +29,7 @@ export async function consumeMessage(topic) {
             
             console.log(`Recibido: ${msg}`);
             
-            kafkaEmitter.emit("Mensaje-Kafka", {
+            kafkaEmitter.emit(kafkaEvent, {
                 topic,
                 partition,
                 value: msg
