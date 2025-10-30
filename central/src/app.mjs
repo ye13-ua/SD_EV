@@ -98,18 +98,16 @@ export const createApp = async ({model}) => {
         console.log("Error al enviar los datos",err.message);
       }
     })
-
-    const data = {
-      test: socket.id
-    }
-
-    socket.on(CP_Central_Status_Socket, (data) => {
-      
+    //TODO probar saltarse este paso y leer directamente desde view
+    socket.on(CP_Central_Status_Socket, (data) => {      
+      /*
+        data {
+          id_uuid
+          estado
+        }
+      */
       //ENVIAR LOS DATOS AL SOCKET DE FRONT (cps.ejs), hacer que se mezcle con los datos de la base de datos
-    
     })
-
-    io.emit("NuevaConexion", data)
 
     socket.on("disconnect", () => {
       console.log("Cliente desconectado", socket.id)

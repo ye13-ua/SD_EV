@@ -25,9 +25,12 @@ services:
       DB_USER: "usuario"
       DB_PASSWORD: "contraseña"
       KAFKA_BOOTSTRAP: "kafka:9092"
-      
+      # kafka
       KAFKA_TOPIC_CP_CENTRAL_CREATE: "t_cp_central_create"
       KAFKA_TOPIC_CENTRAL_CP_CMD: "t_central_cp_cmd"
+      # sockets
+      CP_CENTRAL_STATUS_SOCKET: "CP_Central_Status_Socket"
+      CP_CENTRAL_CREATE_SOCKET: "CP_Central_Create_Socket"
     depends_on:
       kafka:
         condition: service_healthy
