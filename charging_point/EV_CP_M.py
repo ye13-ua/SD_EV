@@ -38,6 +38,8 @@ import json
 import os
 import uuid
 import random
+import threading
+from flask import Flask, render_template_string, jsonify
 
 # Config
 ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
@@ -51,9 +53,10 @@ UUID_PATH = os.getenv("UUID_PATH", os.path.join(os.getcwd(), "cp_uuid.json"))
 PING_INTERVAL = 2
 
 
-def generate_alias(uuid_str):
+def generate_alias(uuid_str, ciudad):
     prefix = uuid_str.split('-')[0].upper()  # primeros 8 chars del UUID
-    return f"CP-{prefix}"
+    city_tag = ciudad[:3].upper()
+    return f"CP-{city_tag}-{prefix}"
 
 # Attempts to load the UUID from local path
 # If it fails, that means it's first launch and thus will create a new UUID and send it to both:
@@ -73,8 +76,10 @@ def load_or_create_cp_data():
     # If no local source is found
     # Generate a new UUID
     new_id = str(uuid.uuid4())
-    location = f"Calle {random.choice(['Sol','Luna','Mar','Paz','Río'])}, Alicante"
-    alias = generate_alias(new_id)
+    calle = random.choice(['Sol','Luna','Mar','Paz','Río'])
+    ciudad = random.choice(['Alicante','Valencia','Zaragoza','Madrid','Barcelona'])
+    location = f"Calle {calle}, {ciudad}"
+    alias = generate_alias(new_id, ciudad)
     data = {"id": new_id, "alias":alias, "location":location}
     # Write down the UUID locally for future acces and send the data to 
     with open(UUID_PATH, "w") as f:
@@ -89,6 +94,11 @@ CP_LOCATION = CP_DATA["location"]
 
 # Default price generated in range from 0.10 to 0.45 with only 3 decimals
 CP_DEFAULT_PRICE = round(random.uniform(0.10, 0.45), 3)
+
+engine_status = "Desconocido"
+kafka_ok = False
+last_ping = "---"
+last_central_contact = "---"
 
 # Ping engine for connection checkup
 def ping_engine(action):
@@ -108,6 +118,7 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
+    global engine_status, last_ping, kafka_ok
     # By default there was no report yet
     last_report = None
     
@@ -120,6 +131,9 @@ def handle_engine():
             status = reply.get("status")
             kafka_ok = reply.get("kafka_ok",True)
     
+        last_ping = time.strftime("%H:%M:%S")
+        engine_status = status
+
         current_report = (status, kafka_ok)
 
         if (current_report != last_report):
@@ -145,14 +159,68 @@ def register_CP_in_central():
 
 # Sends, on change, the status of the charging point
 def send_status_to_central(status, kafka_ok):
+    global last_central_contact
     msg = {"action": "REPORT", "cp_id": CP_ID, "status": status, "kafka_ok": kafka_ok, "timestamp": time.time()}
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((CENTRAL_HOST, CENTRAL_PORT))
             s.sendall(json.dumps(msg).encode())
+        last_central_contact = time.strftime("%H:%M:%S")
         print(f"[{CP_ALIAS}] Sent to Central: {msg}")
     except Exception as e:
         print(f"[{CP_ALIAS}] Could not send status to Central: {e}")
+
+app = Flask(__name__)
+
+TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ alias }}</title>
+  <meta http-equiv="refresh" content="2">
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 40px; background: #f8f9fa; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 400px; }
+    h2 { margin-top: 0; }
+    .status-ok { color: green; }
+    .status-fail { color: red; }
+    .status-warn { color: orange; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Monitor {{ alias }}</h2>
+    <p><b>UUID:</b> {{ uuid }}</p>
+    <p><b>Ubicación:</b> {{ location }}</p>
+    <p><b>Precio:</b> {{ price }} €/kWh</p>
+    <hr>
+    <p><b>Estado Engine:</b>
+      <span class="{{ 'status-ok' if status in ['ACTIVE','AUTH SUCCESS'] else 'status-fail' if status=='BROKEN' else 'status-warn' }}">
+        {{ status }}
+      </span>
+    </p>
+    <p><b>Kafka:</b> <span class="{{ 'status-ok' if kafka_ok else 'status-fail' }}">{{ 'OK' if kafka_ok else 'FALLO' }}</span></p>
+    <p><b>Último ping:</b> {{ last_ping }}</p>
+    <p><b>Último contacto con Central:</b> {{ last_central }}</p>
+  </div>
+</body>
+</html>
+"""
+
+@app.route("/")
+def index():
+    return render_template_string(
+        TEMPLATE,
+        alias=CP_ALIAS,
+        uuid=CP_ID,
+        location=CP_LOCATION,
+        price=CP_DEFAULT_PRICE,
+        status=engine_status,
+        kafka_ok=kafka_ok,
+        last_ping=last_ping,
+        last_central=last_central_contact
+    )
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
 def main():
@@ -169,7 +237,10 @@ def main():
         register_CP_in_central()
 
     # Infinitelly check the status each PING_INTERVAL seconds
-    handle_engine()
+    threading.Thread(target=handle_engine, daemon=True).start()
+
+    port = int(os.getenv("MONITOR_PORT", 9000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 if __name__ == "__main__":
     main()

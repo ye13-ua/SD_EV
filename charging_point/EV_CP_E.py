@@ -17,11 +17,8 @@ import threading
 
 # Traffic lights for multithread editing of the states
 from threading import Lock
-
 # Kafka
 from kafka import KafkaProducer, KafkaConsumer
-#GUI 
-import tkinter as tk
 
 # Config
 HOST = "0.0.0.0"
@@ -46,7 +43,7 @@ except Exception as e:
 
 # Respond to ping from monitor
 def handle_monitor(conn):
-    global kafka_ok, CP_ID
+    global kafka_ok, CP_ID, CP_STATUS
     try:
         data = conn.recv(1024)
         if not data:
@@ -66,6 +63,7 @@ def handle_monitor(conn):
                 print (f"[Engine] Linked to CP_ID {CP_ID}")
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
             conn.sendall(json.dumps(response).encode())
+            CP_STATUS = "ACTIVE"
 
     except Exception as e:
         print(f"[Engine] Error handling monitor: {e}")
@@ -141,10 +139,6 @@ def start_server():
 
     # Creating a thread to listen for central commands
     threading.Thread(target=listen_central_commands, daemon=True).start()
-
-    # GUI
-    window = tk.Tk()
-    window.title(f"CP_Engine {CP_ID}")
 
     # Monitor will persistently check the status via pings after connecting via sockets
     while True:

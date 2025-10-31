@@ -1,0 +1,112 @@
+version: "3.8"
+
+services:
+  # ---------------- Kafka stack ----------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ev_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ev_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ev_kafka
+    depends_on:
+      - zookeeper
+    command: bash -c "sleep 10 && /etc/confluent/docker/run"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - ev_net
+
+  # ---------------- Central dummy ----------------
+  dummy_central:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: ev_central
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: bash -c "
+      pip install kafka-python &&
+      echo 'Esperando a Kafka...' &&
+      while ! nc -z kafka 9092; do sleep 2; done &&
+      echo 'Kafka disponible, iniciando Central...' &&
+      python3 dummy_central.py"
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      CENTRAL_PORT: 9000
+    ports:
+      - "9000:9000"
+    depends_on:
+      - kafka
+    networks:
+      - ev_net
+
+  # ---------------- CP Engine ----------------
+  cp_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: ev_cp_engine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: bash -c "
+      pip install kafka-python &&
+      while ! nc -z kafka 9092; do sleep 2; done &&
+      python3 EV_CP_E.py"
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENGINE_PORT=7000
+    ports:
+      - "7000:7000"
+    depends_on:
+      - dummy_central
+    networks:
+      - ev_net
+
+  cp_monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: ev_cp_monitor
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: bash -c "
+      pip install flask kafka-python &&
+      while ! nc -z ev_central 9000; do sleep 2; done &&
+      python3 EV_CP_M.py"
+    environment:
+      - ENGINE_HOST=ev_cp_engine
+      - ENGINE_PORT=7000
+      - CENTRAL_HOST=ev_central
+      - CENTRAL_PORT=9000
+      - KAFKA_BROKER=kafka:9092
+      - UUID_PATH=/app/cp_uuid.json
+      - MONITOR_PORT=9100
+    depends_on:
+      - cp_engine
+      - dummy_central
+    ports:
+      - "9100:9100"
+    networks:
+      - ev_net
+
+networks:
+  ev_net:
+    driver: bridge
