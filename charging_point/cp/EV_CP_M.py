@@ -47,7 +47,6 @@ ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
 ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 
 CENTRAL_HOST = os.getenv("CENTRAL_HOST","http://localhost:4000")
-CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","4000"))
 
 UUID_PATH = os.getenv("UUID_PATH", f"/app/cp_uuid_{os.getenv('CP_INDEX','0')}.json")
 
@@ -289,22 +288,39 @@ def trigger_MONITOR_DOWN():
     threading.Thread(target=simulate_monitor_down, args=(12,), daemon=True).start()
     return jsonify({"message": "Simulación de avería activada durante 10s"}), 200
 
+@app.route('/favicon.ico')
+def favicon():
+    from flask import Response
+    # Devuelve un favicon vacío para evitar el 404
+    return Response(status=204)
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
 def main():
     print(f"[{CP_ALIAS}] Monitor initiated")
     # Assumption that there's one monitor for each engine (ref. UML)
     print(f"    Engine: {ENGINE_HOST}:{ENGINE_PORT}")
-    print(f"    Central: {CENTRAL_HOST}:{CENTRAL_PORT}")
+    print(f"    Central: {CENTRAL_HOST}")
     
-    sio.connect(CENTRAL_HOST)
+    try:
+        sio.connect(CENTRAL_HOST)
+        print(f"[{CP_ALIAS}] Conectado al {CENTRAL_HOST}")
+    except Exception as e:
+        print(f"[{CP_ALIAS}] No se pudo conectar con Central ({CENTRAL_HOST}): {e}")
+        print(f"[{CP_ALIAS}] Continuando simulación sin Central...")
 
     # Authenticate the engine connection
-    auth = ping_engine("AUTH")
-    if not auth or auth.get("status")!="AUTH SUCCESS":
-        print(f"[{CP_ALIAS}] Engine AUTH failed or unreachable")
+
+    for attempt in range(5):
+        auth = ping_engine("AUTH")
+        if auth and auth.get("status") == "AUTH_SUCCESS":
+            print(f"[{CP_ALIAS}] Engine AUTH success on attempt {attempt+1}")
+            register_CP_in_central()
+            break
+        else:
+            print(f"[{CP_ALIAS}] Engine AUTH failed, retrying... ({attempt+1}/5)")
+            time.sleep(1)
     else:
-        register_CP_in_central()
+        print(f"[{CP_ALIAS}] Engine AUTH failed after 5 attempts, continuing without link")
 
     # Infinitelly check the status each PING_INTERVAL seconds
     threading.Thread(target=handle_engine, daemon=True).start()

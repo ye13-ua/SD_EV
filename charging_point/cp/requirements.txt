@@ -1,2 +1,5 @@
 kafka-python
-tkinter
+flask
+python-socketio
+requests
+websocket-client

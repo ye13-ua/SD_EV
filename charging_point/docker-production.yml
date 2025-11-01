@@ -37,15 +37,28 @@ services:
     depends_on: [kafka]
     environment:
       - KAFKA_BROKER=kafka:9092
-      - CENTRAL_HOST=http://central:8000
+      - CENTRAL_HOST=http://dummy_central:4000
       - ENGINE_PORT=7000
       - ENGINE_HOST=localhost
       - MONITOR_PORT=9000
       - CP_INDEX=${HOSTNAME}
     ports:
-      - "9000-9099:9000"
+      - "9100-9199:9000"
     networks:
       - "ev_net"
+    restart: on-failure
+
+# --------------- Dummy Central ---------------
+  dummy_central:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    command: ["python", "/app/dummy_central.py"]
+    working_dir: /app
+    networks:
+      - ev_net
+    ports:
+      - "4000:4000"
 
 networks:
   ev_net:

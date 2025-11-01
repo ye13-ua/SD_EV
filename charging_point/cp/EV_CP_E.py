@@ -47,17 +47,6 @@ LOCAL_REQ = {
 
 state_lock = Lock()
 
-# Kafka
-try:
-    producer = KafkaProducer(
-        bootstrap_servers=KAFKA_BROKER,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8")
-    )
-    print(f"[Engine] Connected to Kafka at {KAFKA_BROKER}")
-except Exception as e:
-    kafka_ok = False
-    print(f"[Engine] Could not connect to Kafka: {e}")
-
 # Respond to ping from monitor
 def handle_monitor(conn):
     global kafka_ok, CP_ID, CP_STATUS, CP_PRICE, CP_DRIVER_ID
@@ -96,7 +85,7 @@ def handle_monitor(conn):
             if CP_ID is None and "cp_id" in msg:
                 CP_ID = msg["cp_id"]
                 CP_PRICE = msg["cp_price"]
-                CP_STATUS = "AUTH SUCCESS"
+                CP_STATUS = "AUTH_SUCCESS"
                 print (f"[Engine] Linked to CP_ID {CP_ID}")
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
             conn.sendall(json.dumps(response).encode())
@@ -109,6 +98,7 @@ def handle_monitor(conn):
 
 # Listens for kafka topic commands
 def listen_central_commands():
+    global kafka_ok
     # Attempting to connect to cafca and retrieve topic relevant data
     try:
         # Consumer definition
@@ -118,6 +108,7 @@ def listen_central_commands():
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             group_id="cp_engines"
         )
+        kafka_ok = True
         print(f"[Engine] Listening for commands from CENTRAL via Kafka...")
         # For each message we retrieve we process it accordingly
         for message in consumer:
@@ -275,7 +266,8 @@ def start_server():
     print(f"[{CP_ID}] Engine listening on port {PORT}")
 
     # Creating a thread to listen for central commands
-    threading.Thread(target=listen_central_commands, daemon=True).start()
+    if CP_ID:
+        threading.Thread(target=listen_central_commands, daemon=True).start()
 
     # Monitor will persistently check the status via pings after connecting via sockets
     while True:
