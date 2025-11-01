@@ -14,6 +14,7 @@ import time
 import json
 import os
 import threading
+import random
 
 # Traffic lights for multithread editing of the states
 from threading import Lock
@@ -29,6 +30,11 @@ CP_ID = None
 # Estado de conexión a kafka, no tiene nada que ver con la habilidad de recibir/enviar mensajes, solo conexión
 kafka_ok = True
 CP_STATUS = "AUTH_PENDING"
+CP_PRICE = None
+CP_TARGET_CHARGE = None
+CP_PROCESS = None
+CP_CHARGE_PRICE = None
+CP_CAR_CONNECTED = False
 
 # Kafka
 try:
@@ -43,7 +49,7 @@ except Exception as e:
 
 # Respond to ping from monitor
 def handle_monitor(conn):
-    global kafka_ok, CP_ID, CP_STATUS
+    global kafka_ok, CP_ID, CP_STATUS, CP_PRICE
     try:
         data = conn.recv(1024)
         if not data:
@@ -52,13 +58,14 @@ def handle_monitor(conn):
         action = msg.get("action")
 
         if action == "PING":
-            response = {"status": CP_STATUS, "kafka_ok": kafka_ok}
+            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_CONNECTED}
             conn.sendall(json.dumps(response).encode())
-            if CP_ID:
-                publish_status("ACTIVE")
+            #if CP_ID:
+            #    publish_status("ACTIVE")
         elif action == "AUTH":
             if CP_ID is None and "cp_id" in msg:
                 CP_ID = msg["cp_id"]
+                CP_PRICE = msg["cp_price"]
                 CP_STATUS = "AUTH SUCCESS"
                 print (f"[Engine] Linked to CP_ID {CP_ID}")
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
@@ -110,7 +117,13 @@ def publish_status(status):
     if not kafka_ok:
         return
     # Status message containing the id, status and timestamp
-    msg = {"cp_id": CP_ID, "status": status, "timestamp": time.time()}
+    
+    if status == 'CHARGING_CENTRAL':
+        msg = {"cp_id": CP_ID, "status": status, "price": CP_PRICE, "timestamp": time.time()}
+    elif status == 'CHARGING_LOCAL':
+        msg = {"cp_id": CP_ID, "status": status, "price": CP_PRICE, "timestamp": time.time()}
+    else:
+        msg = {"cp_id": CP_ID, "status": status, "timestamp": time.time()}
     try:
         # Sending the status via kafka
         producer.send("cp_status", msg)
@@ -122,12 +135,45 @@ def publish_status(status):
 # stub
 # Simulates breakdown or other issue
 def simulate_local_fault():
-    return False
+    global CP_STATUS
+    CP_STATUS = "BROKEN"
 
 # stub
 # Simulates using the CP's own interface to recharge the car
 def simulate_local_use():
-    return False
+    if not CP_CAR_CONNECTED:
+        print(f"[Engine] Car not connected, petition refused")
+    global CP_STATUS, CP_TARGET_CHARGE, CP_PROCESS, CP_CHARGE_PRICE
+
+    CP_STATUS = "CHARGNING"
+    CP_TARGET_CHARGE = round(random.uniform(5, 20), 3)
+    CP_PROCESS = 0
+    CP_CHARGE_PRICE = 0
+    time.sleep(4) # Simulate charging
+    CP_CHARGE_PRICE = CP_TARGET_CHARGE * CP_PRICE
+
+    publish_status("CHARGING_LOCAL")
+
+    CP_PROCESS = None
+    CP_CHARGE_PRICE = None
+
+# Simulate charging petition from Centreal
+def simulate_app_use():
+    if not CP_CAR_CONNECTED:
+        print(f"[Engine] Car not connected, petition refused")
+    global CP_STATUS, CP_TARGET_CHARGE, CP_PROCESS, CP_CHARGE_PRICE
+
+    CP_STATUS = "CHARGNING"
+    CP_TARGET_CHARGE = round(random.uniform(5, 20), 3)
+    CP_PROCESS = 0
+    CP_CHARGE_PRICE = 0
+    time.sleep(4) # Simulate charging
+    CP_CHARGE_PRICE = CP_TARGET_CHARGE * CP_PRICE
+
+    publish_status("CHARGING_CENTRAL")
+
+    CP_PROCESS = None
+    CP_CHARGE_PRICE = None
 
 # Defacto main function
 def start_server():

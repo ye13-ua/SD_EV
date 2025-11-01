@@ -99,6 +99,7 @@ engine_status = "Desconocido"
 kafka_ok = False
 last_ping = "---"
 last_central_contact = "---"
+car_status = False
 
 # Ping engine for connection checkup
 def ping_engine(action):
@@ -109,6 +110,8 @@ def ping_engine(action):
         try:
             s.connect((ENGINE_HOST, ENGINE_PORT))
             payload = {"action": action, "cp_id": CP_ID}
+            if action == 'AUTH':
+                payload = {"action": action, "cp_id": CP_ID, "cp_price": CP_DEFAULT_PRICE}
             s.sendall(json.dumps(payload).encode())
             data = s.recv(1024)
             reply = json.loads(data.decode())
@@ -118,7 +121,7 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
-    global engine_status, last_ping, kafka_ok
+    global engine_status, last_ping, kafka_ok, car_status
     # By default there was no report yet
     last_report = None
     
@@ -130,6 +133,7 @@ def handle_engine():
         else:
             status = reply.get("status")
             kafka_ok = reply.get("kafka_ok",True)
+            car_status = reply.get("car_connected",False)
     
         last_ping = time.strftime("%H:%M:%S")
         engine_status = status
@@ -200,6 +204,7 @@ TEMPLATE = """
         {{ status }}
       </span>
     </p>
+    <p><b>Coche conectado:</b> {{ c_status }} </p>
     <p><b>Kafka:</b> <span class="{{ 'status-ok' if kafka_ok else 'status-fail' }}">{{ 'OK' if kafka_ok else 'FALLO' }}</span></p>
     <p><b>Último ping:</b> {{ last_ping }}</p>
     <p><b>Último contacto con Central:</b> {{ last_central }}</p>
@@ -219,7 +224,8 @@ def index():
         status=engine_status,
         kafka_ok=kafka_ok,
         last_ping=last_ping,
-        last_central=last_central_contact
+        last_central=last_central_contact,
+        c_status =car_status
     )
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
