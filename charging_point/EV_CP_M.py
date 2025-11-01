@@ -52,6 +52,8 @@ UUID_PATH = os.getenv("UUID_PATH", os.path.join(os.getcwd(), "cp_uuid.json"))
 
 PING_INTERVAL = 2
 
+MONITOR_DOWN = False
+
 
 def generate_alias(uuid_str, ciudad):
     prefix = uuid_str.split('-')[0].upper()  # primeros 8 chars del UUID
@@ -126,9 +128,15 @@ def handle_engine():
     last_report = None
     
     while True:
+
+        while MONITOR_DOWN:
+            print(f"[Monitor] Simulating MONITOR_DOWN")
+            time.sleep(PING_INTERVAL)
+            
+
         reply = ping_engine("PING")
         if not reply:
-            status = "NO CONNECTION"
+            status = "BROKEN"
             kafka_ok = False
         else:
             status = reply.get("status")
@@ -174,6 +182,14 @@ def send_status_to_central(status, kafka_ok):
     except Exception as e:
         print(f"[{CP_ALIAS}] Could not send status to Central: {e}")
 
+def simulate_monitor_down(t):
+    global MONITOR_DOWN
+    MONITOR_DOWN = True
+    print(f"[Monitor] Simulating monitor down for {t} seconds")
+    time.sleep(t)
+    MONITOR_DOWN = False
+    print("[Monitor] Monitor recovered")
+
 app = Flask(__name__)
 
 TEMPLATE = """
@@ -208,6 +224,19 @@ TEMPLATE = """
     <p><b>Kafka:</b> <span class="{{ 'status-ok' if kafka_ok else 'status-fail' }}">{{ 'OK' if kafka_ok else 'FALLO' }}</span></p>
     <p><b>Último ping:</b> {{ last_ping }}</p>
     <p><b>Último contacto con Central:</b> {{ last_central }}</p>
+    <hr>
+    <button onclick="simulate_monitor_down()" style="padding:10px 15px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">
+      Simular avería
+    </button>
+
+    <script>
+      async function simulateMonitorDown() {
+        const res = await fetch('/simulate_monitor_down', {method:'POST'});
+        if (res.ok) alert('Simulación de la caída del monitor');
+        else alert('Error al activar simulación');
+      }
+    </script>
+
   </div>
 </body>
 </html>
@@ -227,6 +256,12 @@ def index():
         last_central=last_central_contact,
         c_status =car_status
     )
+
+@app.route("/simulate_monitor_down", methods=["POST"])
+def trigger_MONITOR_DOWN():
+    threading.Thread(target=simulate_monitor_down, args=(12,), daemon=True).start()
+    return jsonify({"message": "Simulación de avería activada durante 10s"}), 200
+
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
 def main():
