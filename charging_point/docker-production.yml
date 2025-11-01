@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  # ---------------- Kafka stack ----------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ev_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ev_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ev_kafka
+    depends_on:
+      - zookeeper
+    command: bash -c "sleep 10 && /etc/confluent/docker/run"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - ev_net
+
+  # ---------------- CP Engine ----------------
+  cp_pair:
+    build: ./cp
+    depends_on: [kafka]
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - CENTRAL_HOST=http://dummy_central:4000
+      - ENGINE_PORT=7000
+      - ENGINE_HOST=localhost
+      - MONITOR_PORT=9000
+      - CP_INDEX=${HOSTNAME}
+    ports:
+      - "9100-9199:9000"
+    networks:
+      - "ev_net"
+    restart: on-failure
+
+# --------------- Dummy Central ---------------
+  dummy_central:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    command: ["python", "/app/dummy_central.py"]
+    working_dir: /app
+    networks:
+      - ev_net
+    ports:
+      - "4000:4000"
+
+networks:
+  ev_net:
+    driver: bridge
