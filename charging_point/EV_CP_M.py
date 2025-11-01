@@ -183,7 +183,9 @@ def send_status_to_central(status, kafka_ok):
         print(f"[{CP_ALIAS}] Could not send status to Central: {e}")
 
 def send_perpetual_ping_cental():
-    
+    while True:
+        
+
 
 def simulate_monitor_down(t):
     global MONITOR_DOWN

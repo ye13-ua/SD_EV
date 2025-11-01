@@ -31,11 +31,13 @@ CP_ID = None
 kafka_ok = True
 CP_STATUS = "AUTH_PENDING"
 CP_PRICE = None
-CP_TARGET_CHARGE = None
+CP_TARGET_CHARGE = 0.0
+CP_CHARGE_PROCESS = 0.0
 CP_PROCESS = None
 CP_CHARGE_PRICE = None
 CP_CAR_CONNECTED = False
 CP_DRIVER_ID = None
+CP_DRIVER_ALIAS = None
 
 # Kafka
 try:
@@ -68,7 +70,8 @@ def handle_monitor(conn):
                     "car_connected": CP_CAR_CONNECTED,
                     "target_kwh": CP_TARGET_CHARGE,
                     "price_kwh": CP_PRICE,
-                    "current_cost": CP_CHARGE_PRICE
+                    "current_cost": CP_CHARGE_PRICE,
+                    "charging_process": CP_CHARGE_PROCESS
                 }
             elif CP_STATUS == "CHARGING_CENTRAL":
                 response = {
@@ -78,6 +81,7 @@ def handle_monitor(conn):
                     "target_kwh": CP_TARGET_CHARGE,
                     "price_kwh": CP_PRICE,
                     "current_cost": CP_CHARGE_PRICE,
+                    "charging_process": CP_CHARGE_PROCESS,
                     "driver_id": CP_DRIVER_ID
                 }
             
@@ -105,7 +109,7 @@ def listen_central_commands():
     try:
         # Consumer definition
         consumer = KafkaConsumer(
-            "central_cmd",
+            "Central.Commands",
             bootstrap_servers=KAFKA_BROKER,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             group_id="cp_engines"
@@ -128,19 +132,31 @@ def handle_central_command(cmd):
     global CP_STATUS, CP_DRIVER_ID, CP_CAR_CONNECTED, CP_TARGET_CHARGE, CP_PRICE
     action = cmd.get("action", "").upper()
     if action == "STOP":
+        if CP_STATUS == "CHARGING_LOCAL" or CP_STATUS == "CHARGING_CENTRAL":
+            save_current_session()
         CP_STATUS = "OUT_OF_SERVICE"
     elif action == "START":
         CP_STATUS = "ACTIVE"
+        recover_previous_session()
     elif action == "CHARGE":
         CP_CAR_CONNECTED = True
         CP_DRIVER_ID = cmd.get("driver_id").upper()
         CP_TARGET_CHARGE = cmd.get("target_charge")
         simulate_app_use()
         CP_CAR_CONNECTED = False
+        CP_DRIVER_ID = None
     elif action == "UPDATE_PRICE":
         CP_PRICE = cmd.get("price")
+    elif action == "BROKEN":
+        simulate_local_fault()
     else:
         print(f"[Engine] Unknown command action: {action}")
+
+# stub
+# Simulates breakdown or other issue
+def simulate_local_fault():
+    global CP_STATUS
+    CP_STATUS = "BROKEN"
 
 #  DEBUG PURPOSE REFERENCING KAFKA
 # def publish_status(status):
@@ -164,45 +180,97 @@ def handle_central_command(cmd):
 #         print(f"[Engine] Kafka publish error: {e}")
 
 # stub
-# Simulates breakdown or other issue
-def simulate_local_fault():
-    global CP_STATUS
-    CP_STATUS = "BROKEN"
-
-# stub
 # Simulates using the CP's own interface to recharge the car
 def simulate_local_use():
+    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_DRIVER_ALIAS, CP_CAR_CONNECTED, CP_CHARGE_PROCESS, CP_STATUS
     CP_CAR_CONNECTED = True
 
     if not CP_CAR_CONNECTED:
         print(f"[Engine] Car not connected, petition refused")
-    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE
 
     CP_STATUS = "CHARGING_LOCAL"
-    CP_TARGET_CHARGE = round(random.uniform(5, 20), 3)
+    CP_TARGET_CHARGE = round(random.uniform(3, 12), 3)
     CP_CHARGE_PRICE = 0
-    time.sleep(4) # Simulate charging
-    CP_CHARGE_PRICE = CP_TARGET_CHARGE * CP_PRICE
-    CP_CHARGE_PRICE = None
+    CP_CHARGE_PROCESS = 0
+    CP_DRIVER_ALIAS = random.choice(['Julio César','Alejando Magno','Ada Lovelace','Alan Turing','Juana De Arco'])
+    while CP_CHARGE_PROCESS < CP_TARGET_CHARGE:
+        if (CP_STATUS in ("OUT_OF_SERVICE", "BROKEN")):
+            save_current_session()
+            return
+        CP_CHARGE_PROCESS += 1
+        CP_CHARGE_PRICE += CP_PRICE
+        time.sleep(1)
+    CP_CHARGE_PRICE = 0
+    CP_DRIVER_ALIAS = None
 
     CP_CAR_CONNECTED = False
 
 # Simulate charging petition from Centreal
 def simulate_app_use():
+    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_DRIVER_ALIAS, CP_CAR_CONNECTED, CP_CHARGE_PROCESS, CP_STATUS
     if not CP_CAR_CONNECTED:
         print(f"[Engine] Car not connected, petition refused")
-    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE
 
-    CP_STATUS = "CHARNING_CENTRAL"
-    CP_TARGET_CHARGE = round(random.uniform(5, 20), 3)
+    CP_STATUS = "CHARGING_CENTRAL"
     CP_CHARGE_PRICE = 0
-    time.sleep(4) # Simulate charging
-    CP_CHARGE_PRICE = CP_TARGET_CHARGE * CP_PRICE
-    CP_CHARGE_PRICE = None
+    CP_CHARGE_PROCESS = 0
+    while CP_CHARGE_PROCESS < CP_TARGET_CHARGE:
+        if (CP_STATUS in ("OUT_OF_SERVICE", "BROKEN")):
+            save_current_session()
+            return
+        CP_CHARGE_PROCESS += 1
+        CP_CHARGE_PRICE += CP_PRICE
+        time.sleep(1)
+    CP_CHARGE_PRICE = 0
+
+def save_current_session():
+    session = {
+        "cp_id": CP_ID,
+        "driver_id": CP_DRIVER_ID,
+        "driver_alias": CP_DRIVER_ALIAS,
+        "status": CP_STATUS,
+        "charged_kwh": CP_CHARGE_PROCESS,
+        "target_kwh": CP_TARGET_CHARGE,
+        "price_kwh": CP_PRICE,
+        "total_cost": round(CP_CHARGE_PRICE, 3) if CP_CHARGE_PRICE else 0,
+        "timestamp": time.time()
+    }
+
+    try:
+        with open(f"session_{CP_ID}.json", "w") as f:
+            json.dump(session, f, indent=4)
+        print(f"[ENGINE] Saved session: {CP_DRIVER_ID} ({CP_CHARGE_PROCESS:.2f} kWh, {CP_CHARGE_PRICE:.2f}€)")
+    except Exception as e:
+        print(f"[Egnine] Error while saving session: {e}")
+
+def recover_previous_session():
+    global CP_DRIVER_ID, CP_DRIVER_ALIAS, CP_CHARGE_PROCESS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_PRICE
+    path = f"session_{CP_ID}.json"
+    if not os.path.exists(path):
+        return False
+
+    try:
+        with open(path, "r") as f:
+            session = json.load(f)
+        os.remove(path)
+        CP_DRIVER_ID = session.get("driver_id")
+        CP_DRIVER_ALIAS = session.get("driver_alias")
+        CP_TARGET_CHARGE = session.get("target_kwh", 0)
+        CP_CHARGE_PROCESS = session.get("charged_kwh", 0)
+        CP_CHARGE_PRICE = session.get("total_cost", 0)
+        CP_PRICE = session.get("price_kwh", CP_PRICE)
+        print(f"[Engine] Recovered previous session: {CP_CHARGE_PROCESS:.1f}/{CP_TARGET_CHARGE} kWh ({CP_CHARGE_PRICE:.2f}€)")
+        return True
+    except Exception as e:
+        print(f"[Engine] Error recovering session: {e}")
+        return False
+            
 
 # Defacto main function
 def start_server():
     # Initialize sockets
+    recover_previous_session()
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((HOST,PORT))
     s.listen()
