@@ -94,8 +94,8 @@ services:
     environment:
       - ENGINE_HOST=ev_cp_engine
       - ENGINE_PORT=7000
-      - CENTRAL_HOST=ev_central
-      - CENTRAL_PORT=9000
+      - CENTRAL_HOST=http://ev_central:4000
+      - CENTRAL_PORT=4000
       - KAFKA_BROKER=kafka:9092
       - UUID_PATH=/app/cp_uuid.json
       - MONITOR_PORT=9100

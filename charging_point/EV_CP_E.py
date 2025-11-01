@@ -35,9 +35,17 @@ CP_TARGET_CHARGE = 0.0
 CP_CHARGE_PROCESS = 0.0
 CP_PROCESS = None
 CP_CHARGE_PRICE = None
-CP_CAR_CONNECTED = False
+CP_CAR_IS_CONNECTED = False
 CP_DRIVER_ID = None
 CP_DRIVER_ALIAS = None
+
+PENDING_LOCAL_REQ = False
+LOCAL_REQ = {
+    "driver_id": CP_DRIVER_ID,
+    "target_kwh": CP_TARGET_CHARGE
+}
+
+state_lock = Lock()
 
 # Kafka
 try:
@@ -61,29 +69,25 @@ def handle_monitor(conn):
         action = msg.get("action")
 
         if action == "PING":
-            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_CONNECTED}
+            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED}
             
-            if CP_STATUS == "CHARGING_LOCAL":
-                response = {
-                    "status": "CHARGING_LOCAL",
-                    "kafka_ok": kafka_ok,
-                    "car_connected": CP_CAR_CONNECTED,
-                    "target_kwh": CP_TARGET_CHARGE,
-                    "price_kwh": CP_PRICE,
-                    "current_cost": CP_CHARGE_PRICE,
-                    "charging_process": CP_CHARGE_PROCESS
-                }
-            elif CP_STATUS == "CHARGING_CENTRAL":
-                response = {
-                    "status": "CHARGING_CENTRAL",
-                    "kafka_ok": kafka_ok,
-                    "car_connected": CP_CAR_CONNECTED,
-                    "target_kwh": CP_TARGET_CHARGE,
-                    "price_kwh": CP_PRICE,
-                    "current_cost": CP_CHARGE_PRICE,
-                    "charging_process": CP_CHARGE_PROCESS,
-                    "driver_id": CP_DRIVER_ID
-                }
+            if CP_STATUS == "CHARGING_CENTRAL":
+                response.update({
+                "target_kwh": CP_TARGET_CHARGE,
+                "price_kwh": CP_PRICE,
+                "current_cost": CP_CHARGE_PRICE,
+                "charging_process": CP_CHARGE_PROCESS,
+                "driver_id": CP_DRIVER_ID
+            })
+            
+            if PENDING_LOCAL_REQ and CP_STATUS == "WAITING":
+                response.update({
+                    "local_request": {
+                        "cp_id": CP_ID,
+                        "driver_id": LOCAL_REQ["driver_id"],
+                        "target_kwh": LOCAL_REQ["target_kwh"]
+                    }
+                })
             
             conn.sendall(json.dumps(response).encode())
             #if CP_ID:
@@ -109,7 +113,7 @@ def listen_central_commands():
     try:
         # Consumer definition
         consumer = KafkaConsumer(
-            "Central.Commands",
+            "Central.CP.Commands",
             bootstrap_servers=KAFKA_BROKER,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             group_id="cp_engines"
@@ -129,26 +133,42 @@ def listen_central_commands():
 
 # Handles command recieved via kafka from the central
 def handle_central_command(cmd):
-    global CP_STATUS, CP_DRIVER_ID, CP_CAR_CONNECTED, CP_TARGET_CHARGE, CP_PRICE
+    global PENDING_LOCAL_REQ, CP_STATUS, CP_DRIVER_ID, CP_CAR_IS_CONNECTED, CP_TARGET_CHARGE, CP_PRICE
     action = cmd.get("action", "").upper()
     if action == "STOP":
-        if CP_STATUS == "CHARGING_LOCAL" or CP_STATUS == "CHARGING_CENTRAL":
-            save_current_session()
-        CP_STATUS = "OUT_OF_SERVICE"
+        with state_lock:
+            if CP_STATUS == "CHARGING_CENTRAL":
+                save_current_session()
+            if CP_STATUS == "WAITING":
+                PENDING_LOCAL_REQ = False
+            CP_STATUS = "OUT_OF_SERVICE"
+        return
     elif action == "START":
         CP_STATUS = "ACTIVE"
         recover_previous_session()
     elif action == "CHARGE":
-        CP_CAR_CONNECTED = True
-        CP_DRIVER_ID = cmd.get("driver_id").upper()
-        CP_TARGET_CHARGE = cmd.get("target_charge")
+        with state_lock:
+            PENDING_LOCAL_REQ = False
+
+            CP_CAR_IS_CONNECTED = True
+            CP_DRIVER_ID = cmd.get("driver_id").upper()
+            CP_TARGET_CHARGE = cmd.get("target_charge")
         simulate_app_use()
-        CP_CAR_CONNECTED = False
+        CP_CAR_IS_CONNECTED = False
         CP_DRIVER_ID = None
     elif action == "UPDATE_PRICE":
         CP_PRICE = cmd.get("price")
     elif action == "BROKEN":
+        with state_lock:
+            if CP_STATUS == "CHARGING_CENTRAL":
+                save_current_session()
+            if CP_STATUS == "WAITING":
+                PENDING_LOCAL_REQ = False
         simulate_local_fault()
+        return
+    elif action == "DRIVER_DISCONNECT":
+        simulate_driver_disconnect()
+        return
     else:
         print(f"[Engine] Unknown command action: {action}")
 
@@ -158,57 +178,35 @@ def simulate_local_fault():
     global CP_STATUS
     CP_STATUS = "BROKEN"
 
-#  DEBUG PURPOSE REFERENCING KAFKA
-# def publish_status(status):
-#     # If the kafka server/connection is faulty we abort
-#     if not kafka_ok:
-#         return
-#     # Status message containing the id, status and timestamp
-#     
-#     if status == "CHARGING_CENTRAL":
-#         msg = {"cp_id": CP_ID, "status": status, "price": CP_PRICE, "timestamp": time.time()}
-#     elif status == "CHARGING_LOCAL":
-#         msg = {"cp_id": CP_ID, "status": status, "price": CP_PRICE, "timestamp": time.time()}
-#     else:
-#         msg = {"cp_id": CP_ID, "status": status, "timestamp": time.time()}
-#     try:
-#         # Sending the status via kafka
-#         producer.send("cp_status", msg)
-#         producer.flush()
-#         print(f"[Engine] Published status: {msg}")
-#     except Exception as e:
-#         print(f"[Engine] Kafka publish error: {e}")
+def simulate_driver_disconnect():
+    global CP_STATUS, CP_TARGET_CHARGE, CP_CAR_IS_CONNECTED, CP_DRIVER_ID, PENDING_LOCAL_REQ, LOCAL_REQ
+    
+    CP_STATUS = "ACTIVE"
+    CP_CAR_IS_CONNECTED = False
+    
+    return
 
 # stub
 # Simulates using the CP's own interface to recharge the car
 def simulate_local_use():
-    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_DRIVER_ALIAS, CP_CAR_CONNECTED, CP_CHARGE_PROCESS, CP_STATUS
-    CP_CAR_CONNECTED = True
+    global CP_STATUS, CP_TARGET_CHARGE, CP_CAR_IS_CONNECTED, CP_DRIVER_ID, PENDING_LOCAL_REQ, LOCAL_REQ
+    
+    with state_lock:
+        CP_CAR_IS_CONNECTED = True
+        CP_STATUS = "WAITING"
+        CP_DRIVER_ID = random.randint(1,3)
+        CP_TARGET_CHARGE = random.uniform(3,12)
+        PENDING_LOCAL_REQ = True
+        LOCAL_REQ = {
+            "driver_id": CP_DRIVER_ID,
+            "target_kwh": CP_TARGET_CHARGE
+        }
 
-    if not CP_CAR_CONNECTED:
-        print(f"[Engine] Car not connected, petition refused")
-
-    CP_STATUS = "CHARGING_LOCAL"
-    CP_TARGET_CHARGE = round(random.uniform(3, 12), 3)
-    CP_CHARGE_PRICE = 0
-    CP_CHARGE_PROCESS = 0
-    CP_DRIVER_ALIAS = random.choice(['Julio César','Alejando Magno','Ada Lovelace','Alan Turing','Juana De Arco'])
-    while CP_CHARGE_PROCESS < CP_TARGET_CHARGE:
-        if (CP_STATUS in ("OUT_OF_SERVICE", "BROKEN")):
-            save_current_session()
-            return
-        CP_CHARGE_PROCESS += 1
-        CP_CHARGE_PRICE += CP_PRICE
-        time.sleep(1)
-    CP_CHARGE_PRICE = 0
-    CP_DRIVER_ALIAS = None
-
-    CP_CAR_CONNECTED = False
 
 # Simulate charging petition from Centreal
 def simulate_app_use():
-    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_DRIVER_ALIAS, CP_CAR_CONNECTED, CP_CHARGE_PROCESS, CP_STATUS
-    if not CP_CAR_CONNECTED:
+    global CP_STATUS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_DRIVER_ALIAS, CP_CAR_IS_CONNECTED, CP_CHARGE_PROCESS, CP_STATUS
+    if not CP_CAR_IS_CONNECTED:
         print(f"[Engine] Car not connected, petition refused")
 
     CP_STATUS = "CHARGING_CENTRAL"
@@ -241,7 +239,7 @@ def save_current_session():
             json.dump(session, f, indent=4)
         print(f"[ENGINE] Saved session: {CP_DRIVER_ID} ({CP_CHARGE_PROCESS:.2f} kWh, {CP_CHARGE_PRICE:.2f}€)")
     except Exception as e:
-        print(f"[Egnine] Error while saving session: {e}")
+        print(f"[Engine] Error while saving session: {e}")
 
 def recover_previous_session():
     global CP_DRIVER_ID, CP_DRIVER_ALIAS, CP_CHARGE_PROCESS, CP_TARGET_CHARGE, CP_CHARGE_PRICE, CP_PRICE

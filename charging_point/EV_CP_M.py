@@ -39,14 +39,15 @@ import os
 import uuid
 import random
 import threading
+import socketio
 from flask import Flask, render_template_string, jsonify
 
 # Config
 ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
 ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 
-CENTRAL_HOST = os.getenv("CENTRAL_HOST","localhost")
-CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","8000"))
+CENTRAL_HOST = os.getenv("CENTRAL_HOST","http://localhost:4000")
+CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","4000"))
 
 UUID_PATH = os.getenv("UUID_PATH", os.path.join(os.getcwd(), "cp_uuid.json"))
 
@@ -54,6 +55,18 @@ PING_INTERVAL = 2
 
 MONITOR_DOWN = False
 
+CP_STATUS_CHANGED = False
+already_charged = 0.0
+
+sio = socketio.Client()
+
+@sio.event
+def connect():
+    print("[Monitor] Connected to Central via Socket.IO")
+
+@sio.event
+def disconnect():
+    print("[Monitor] Disconnected from Central")
 
 def generate_alias(uuid_str, ciudad):
     prefix = uuid_str.split('-')[0].upper()  # primeros 8 chars del UUID
@@ -123,9 +136,10 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
-    global engine_status, last_ping, kafka_ok, car_status
+    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED
     # By default there was no report yet
     last_report = None
+    last_local_request = None
     
     while True:
 
@@ -140,6 +154,15 @@ def handle_engine():
             kafka_ok = False
         else:
             status = reply.get("status")
+
+            if status == "WAITING" and "local_request" in reply:
+                req = reply["local_request"]
+                if req != last_local_request:
+                    send_charging_petition_to_central(req["driver_id"], req["target_kwh"])
+                    last_local_request = req
+            if status == "CHARGING_CENTRAL":
+                already_charged = reply.get("charging_process")
+
             kafka_ok = reply.get("kafka_ok",True)
             car_status = reply.get("car_connected",False)
     
@@ -148,44 +171,43 @@ def handle_engine():
 
         current_report = (status, kafka_ok)
 
-        if (current_report != last_report):
-            send_status_to_central(status, kafka_ok)
-            last_report = current_report
+        CP_STATUS_CHANGED = current_report != last_report
+        last_report = current_report
+        
+        send_status_to_central(status, kafka_ok)
         
         time.sleep(PING_INTERVAL)
 
 # Registers the CP with the Central and Central's BD
 def register_CP_in_central():
-    msg = {"action": "REGISTER",
-           "cp_id": CP_ID,
-           "alias": CP_ALIAS,
-           "location": CP_LOCATION,
-           "price": CP_DEFAULT_PRICE}
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((CENTRAL_HOST, CENTRAL_PORT))
-            s.sendall(json.dumps(msg).encode())
-        print(f"[{CP_ALIAS}] Sent to central: {msg}")
-    except Exception as e:
-        print(f"[{CP_ALIAS}] Could not register with cental")
+    msg = {"ID_UUID": CP_ID,
+           "Ubicacion": CP_ALIAS,
+           "UbicacionLarga": CP_LOCATION,
+           "Precio_KWH": CP_DEFAULT_PRICE,
+           "Timestamp": time.strftime("%H:%M:%S")}
+    sio.emit("CP_Central_Create_Socket", msg)
 
 # Sends, on change, the status of the charging point
 def send_status_to_central(status, kafka_ok):
-    global last_central_contact
-    msg = {"action": "REPORT", "cp_id": CP_ID, "status": status, "kafka_ok": kafka_ok, "timestamp": time.time()}
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((CENTRAL_HOST, CENTRAL_PORT))
-            s.sendall(json.dumps(msg).encode())
-        last_central_contact = time.strftime("%H:%M:%S")
-        print(f"[{CP_ALIAS}] Sent to Central: {msg}")
-    except Exception as e:
-        print(f"[{CP_ALIAS}] Could not send status to Central: {e}")
+    global last_central_contact, already_charged
+    msg = {"ID_UUID": CP_ID,
+           "Estado": status,
+           "KafkaOk": kafka_ok,
+           "isChanged": CP_STATUS_CHANGED,
+           "alreadyCharged": already_charged,
+           "Timestamp": time.strftime("%H:%M:%S")}
+    sio.emit("CP_Central_Status_Socket", msg)
+    already_charged = 0.0
 
-def send_perpetual_ping_cental():
-    while True:
-        
-
+#
+def send_charging_petition_to_central(driver_id, target_charge):
+    msg = {
+        "ID_UUID": CP_ID,
+        "DriverID": driver_id,
+        "TargetCharge": target_charge,
+        "Timestamp": time.strftime("%H:%M:%S")
+    }
+    sio.emit("CP_Central_RequestCharge_Socket", msg)
 
 def simulate_monitor_down(t):
     global MONITOR_DOWN
@@ -230,7 +252,7 @@ TEMPLATE = """
     <p><b>Último ping:</b> {{ last_ping }}</p>
     <p><b>Último contacto con Central:</b> {{ last_central }}</p>
     <hr>
-    <button onclick="simulate_monitor_down()" style="padding:10px 15px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">
+    <button onclick="simulateMonitorDown()" style="padding:10px 15px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">
       Simular avería
     </button>
 
@@ -275,6 +297,8 @@ def main():
     print(f"    Engine: {ENGINE_HOST}:{ENGINE_PORT}")
     print(f"    Central: {CENTRAL_HOST}:{CENTRAL_PORT}")
     
+    sio.connect(CENTRAL_HOST)
+
     # Authenticate the engine connection
     auth = ping_engine("AUTH")
     if not auth or auth.get("status")!="AUTH SUCCESS":
