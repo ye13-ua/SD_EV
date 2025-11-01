@@ -31,81 +31,21 @@ services:
     networks:
       - ev_net
 
-  # ---------------- Central dummy ----------------
-  dummy_central:
-    build:
-      context: .
-      dockerfile: Dockerfile.python
-    container_name: ev_central
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: bash -c "
-      pip install kafka-python &&
-      echo 'Esperando a Kafka...' &&
-      while ! nc -z kafka 9092; do sleep 2; done &&
-      echo 'Kafka disponible, iniciando Central...' &&
-      python3 dummy_central.py"
-    environment:
-      KAFKA_BOOTSTRAP: kafka:9092
-      CENTRAL_PORT: 9000
-    ports:
-      - "9000:9000"
-    depends_on:
-      - kafka
-    networks:
-      - ev_net
-
   # ---------------- CP Engine ----------------
-  cp_engine:
-    build:
-      context: .
-      dockerfile: Dockerfile.python
-    container_name: ev_cp_engine
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: bash -c "
-      pip install kafka-python &&
-      while ! nc -z kafka 9092; do sleep 2; done &&
-      python3 EV_CP_E.py"
+  cp_pair:
+    build: ./cp
+    depends_on: [kafka]
     environment:
       - KAFKA_BROKER=kafka:9092
+      - CENTRAL_HOST=http://central:8000
       - ENGINE_PORT=7000
+      - ENGINE_HOST=localhost
+      - MONITOR_PORT=9000
+      - CP_INDEX=${HOSTNAME}
     ports:
-      - "7000:7000"
-    depends_on:
-      - dummy_central
+      - "9000-9099:9000"
     networks:
-      - ev_net
-
-  cp_monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile.python
-    container_name: ev_cp_monitor
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: bash -c "
-      pip install flask kafka-python &&
-      while ! nc -z ev_central 9000; do sleep 2; done &&
-      python3 EV_CP_M.py"
-    environment:
-      - ENGINE_HOST=ev_cp_engine
-      - ENGINE_PORT=7000
-      - CENTRAL_HOST=http://ev_central:4000
-      - CENTRAL_PORT=4000
-      - KAFKA_BROKER=kafka:9092
-      - UUID_PATH=/app/cp_uuid.json
-      - MONITOR_PORT=9100
-    depends_on:
-      - cp_engine
-      - dummy_central
-    ports:
-      - "9100:9100"
-    networks:
-      - ev_net
+      - "ev_net"
 
 networks:
   ev_net:

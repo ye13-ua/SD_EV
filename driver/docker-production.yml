@@ -1,0 +1,11 @@
+services:
+  driver:
+    build: ./driver
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - FLASK_PORT=5000
+      - DRIVER_ALIAS=Driver_$HOSTNAME
+    ports:
+      - "5000-5100:5000"

@@ -49,7 +49,7 @@ ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 CENTRAL_HOST = os.getenv("CENTRAL_HOST","http://localhost:4000")
 CENTRAL_PORT = int(os.getenv("CENTRAL_PORT","4000"))
 
-UUID_PATH = os.getenv("UUID_PATH", os.path.join(os.getcwd(), "cp_uuid.json"))
+UUID_PATH = os.getenv("UUID_PATH", f"/app/cp_uuid_{os.getenv('CP_INDEX','0')}.json")
 
 PING_INTERVAL = 2
 

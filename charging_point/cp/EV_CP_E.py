@@ -195,7 +195,7 @@ def simulate_local_use():
         CP_CAR_IS_CONNECTED = True
         CP_STATUS = "WAITING"
         CP_DRIVER_ID = random.randint(1,3)
-        CP_TARGET_CHARGE = random.uniform(3,12)
+        CP_TARGET_CHARGE = round(random.uniform(3, 12), 2)
         PENDING_LOCAL_REQ = True
         LOCAL_REQ = {
             "driver_id": CP_DRIVER_ID,
