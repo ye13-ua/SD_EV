@@ -7,6 +7,8 @@ import random
 import threading
 import time
 
+from flask import Flask, render_template_string, jsonify
+
 BROKER = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 INFO_FILE = "driver_info.json"
 
@@ -45,7 +47,7 @@ def request_charge(producer, driver_info, cp_id=None):
     msg = {
         "action": "CONNECTCP",
         "driver_id": driver_info["id"],
-        "cp_id": cp_id or "RANDOM",
+        "cp_id": cp_id,
         "charge": random.uniform(3,12)
     }
 
@@ -80,6 +82,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         elif action == "TICKET":
             print(f"[Driver] Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
+            # TODO REVIEW THIS PART JUST IN CASE
             cps = data.get("cps", [])
             print("[Driver] Lista de puntos disponibles:")
             for cp in cps:
@@ -87,7 +90,8 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         elif action == "DISCONNECT":
             disconnect_vehicle(producer, driver_info, data.get("cp_id"))
         elif action == "CONNECTION_LOGS":
-            print(f"[Driver] LOG {data.get('logs')}")
+            print(f"[Driver] LOG: {data.get('logs')}")
+
 
 
 def main():
