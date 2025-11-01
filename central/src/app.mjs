@@ -130,26 +130,50 @@ export const createApp = async ({model}) => {
 
  //--------------------------------- KAFKA ---------------------------------
 
-const {KAFKA_TOPIC_CENTRAL_CP_CMD} = process.env;
+const {CENTRAL_DRIVER_COMMAND, CENTRAL_CP_COMMANDS, DRIVER_COMMANDS} = process.env;
 
 async function runKafka() {
 
-  await ensureTopic(KAFKA_TOPIC_CENTRAL_CP_CMD)
+  await ensureTopic(CENTRAL_DRIVER_COMMAND)
+  await ensureTopic(CENTRAL_CP_COMMANDS)
+  await ensureTopic(DRIVER_COMMANDS)
   
-  await consumeMessage(KAFKA_TOPIC_CP_CENTRAL_CREATE);
+  await consumeMessage(DRIVER_COMMANDS);
   
-
-
   //await produceMessage(KAFKA_TOPIC_CENTRAL_CP_CMD, "ESTE ES MI MENSAJE QUE SE ENVIA POR KAFKA");
 }
 
-kafkaEmitter.on(kafkaEvent, ({topic, partition, value}) => {
+kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
   switch (topic) {
-    
+    case DRIVER_COMMANDS:
+      switch (data.action){
+        case "READALL":
+          CPs = await axios.get(CPsEndPoint);
+
+          data = {
+            action: "READALL_RESPONSE",
+            driver_id: data.driver_id,
+            cps: CPs
+          }
+          //ENVIAR DE VUELTA TODOS LOS CPS
+          produceMessage(CENTRAL_DRIVER_COMMAND, data);
+          
+        break;
+        case "CONNECT_CP":
+          // PEDIR CONFIRMACIÓN A CP PARA LA CONEXION VIENDO EL ESTADO POR SOCKETS
+          // DENEGAR O ACEPTAR POR CENTRAL.DRIVER.COMMANDS
+        break;
+        case "DISCONNECT":
+          // CENTRAL.CP.COMMANDS -> action = DRIVER_DISCONNECT
+          // CENTRAL.DRIVER.COMMANDS -> action = ticket
+        break;
+      }
+        
+    break;
+    default:
+      console.log("Mensaje enviado por un topico incorrecto:",topic);
+    break;
   }
-  console.log(` Mensaje: ${value}`);
-  console.log(` Topico: ${topic}`)
-  console.log(` Partición: ${partition}`)
 }) 
 
 runKafka().catch(console.error)

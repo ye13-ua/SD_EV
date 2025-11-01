@@ -25,15 +25,21 @@ export async function consumeMessage(topic) {
 
     await consumer.run({
         eachMessage: async ({ topic, partition, message }) => {
-            const msg = message.value.toString();
+            try {
+                const msg = message.value.toString();
+                const datos = JSON.parse(msg)
+
+                console.log(`Recibido: ${msg}`);
             
-            console.log(`Recibido: ${msg}`);
-            
-            kafkaEmitter.emit(kafkaEvent, {
-                topic,
-                partition,
-                value: msg
-            })
+                kafkaEmitter.emit(kafkaEvent, {
+                    topic,
+                    partition,
+                    data: datos
+                })
+            } catch(err) {
+                console.log("Error:", err);
+            }
+           
             
         },
     });

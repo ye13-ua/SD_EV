@@ -26,8 +26,9 @@ services:
       DB_PASSWORD: "contraseña"
       KAFKA_BOOTSTRAP: "kafka:9092"
       # kafka
-      KAFKA_TOPIC_CP_CENTRAL_CREATE: "t_cp_central_create"
-      KAFKA_TOPIC_CENTRAL_CP_CMD: "t_central_cp_cmd"
+      CENTRAL_DRIVER_COMMANDS: "Central.Driver.Commands"
+      CENTRAL_CP_COMMANDS: "Central.CP.Commands"
+      DRIVER_COMMANDS: "Driver.Commands" 
       # sockets
       CP_CENTRAL_STATUS_SOCKET: "CP_Central_Status_Socket"
       CP_CENTRAL_CREATE_SOCKET: "CP_Central_Create_Socket"
