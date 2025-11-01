@@ -38,7 +38,7 @@ def wait_for_registration_response(consumer):
             print(f"[Driver] Registrado con ID: {driver_id}")
 
             with open(INFO_FILE, "w") as f:
-                json.dump({"alias": data["alias"], "id": driver_id})
+                json.dump({"alias": data["alias"], "id": driver_id}, f)
             return driver_id
 
 def request_charge(producer, driver_info, cp_id=None):
@@ -63,7 +63,7 @@ def disconnect_vehicle(producer, driver_info, cp_id):
     producer.flush()
     print(f"[Driver] Desconexión forzosa para CP:{cp_id}")
 
-def listen_to_central(consumer, stop_event):
+def listen_to_central(producer, consumer, stop_event, driver_info):
     for msg in consumer:
         if stop_event.is_set():
             break
@@ -78,14 +78,14 @@ def listen_to_central(consumer, stop_event):
             else:
                 print(f"[Driver] Conexión denegada")
         elif action == "TICKET":
-            print(f"[Driver] Ticket recibido desde CP:{cp_id} | Coste {data.get('price')}€")
-        elif action == "REDALL_RESPONSE":
+            print(f"[Driver] Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
+        elif action == "READALL_RESPONSE":
             cps = data.get("cps", [])
             print("[Driver] Lista de puntos disponibles:")
             for cp in cps:
                 print(f"    - {cp['cp_id']}")
         elif action == "DISCONNECT":
-            disconnect_vehicle()
+            disconnect_vehicle(producer, driver_info, data.get("cp_id"))
         elif action == "CONNECTION_LOGS":
             print(f"[Driver] LOG {data.get('logs')}")
 
