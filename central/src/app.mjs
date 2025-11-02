@@ -71,6 +71,8 @@ export const createApp = async ({model}) => {
 //--------------------------------- SOCKET CP_Central_Create_Socket ----------------------------------- //TODO DEBUG = FALSE
     socket.on(CP_Central_Create_Socket, async (data) => {
       try{
+        
+        console.log("DATOS LLEGADOS", data);
 
         const createCP = {
           ID_UUID: data.ID_UUID,
@@ -101,7 +103,7 @@ export const createApp = async ({model}) => {
         console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.Estado}`);
         
         if (ActiveCPs.length !== 0){
-          
+
           const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
         
           if (changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
@@ -139,12 +141,18 @@ export const createApp = async ({model}) => {
 
       //AGREGA A ACTIVE CP
       if(!exists) {
-        readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
-        const cp = readed.data;
-        ActiveCPs.push({...cp, ...data});
+        try {
+          
+          readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
+          const cp = readed.data;
+          ActiveCPs.push({...cp, ...data});
         
-        //ACTUALIZA LOS IDS ACTIVOS
-        tracker.update(data.ID_UUID);
+          //ACTUALIZA LOS IDS ACTIVOS
+          tracker.update(data.ID_UUID);
+        } catch(err){
+          console.log("Error en ->", err);
+        }
+        
       }
     })
 
