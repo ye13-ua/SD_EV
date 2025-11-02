@@ -24,7 +24,7 @@ let ActiveCPs = [];
 
 export const createApp = async ({model}) => {
   
-  //--------------------------------- DB CONTROLLER ---------------------------------
+//--------------------------------- DB CONTROLLER ---------------------------------
   //crea un servidor http con express
   const app = express();
   
@@ -54,29 +54,20 @@ export const createApp = async ({model}) => {
 
   const io = new Server(server, {connectionStateRecovery: {}})
 
-  /*
-    DATOS DESDE MOTOR (Python) 
-    {
-      ID_UUID: "XXX"
-      Estado: "CHARGING"
-      
-      -> fin si
-    }
-  */
   //Socket de creacion de CPS
   const CP_Central_Create_Socket = process.env.CP_CENTRAL_CREATE_SOCKET;
   //Socket de estado de CP
   const CP_Central_Status_Socket = process.env.CP_CENTRAL_STATUS_SOCKET;
   //Socket para enviar comandos desde el view a los CPS
   const View_Central_CMD_Socket = process.env.VIEW_CENTRAL_CMD_SOCKET;
+
   const CPsEndPoint = "http://localhost:4000/CPs";
 
   io.on("connection", (socket) => {
     
     console.log("Cliente conectado:", socket.id);
-    
-    //TODO Probar
-    // Socket que se encarga en crear los CPS
+
+//--------------------------------- SOCKET CP_Central_Create_Socket ----------------------------------- DEBUG = FALSE
     socket.on(CP_Central_Create_Socket, async (data) => {
       try{
         const response = await axios.post(CPsEndPoint, data);
@@ -93,7 +84,7 @@ export const createApp = async ({model}) => {
       }
     })
 
-    //CP de estado para poner los cambios en la consola, isChanged sirve para que no imprima el cambio de estado cada vez que lleguen datos por este socket
+//--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- DEBUG = FALSE
     socket.on(CP_Central_Status_Socket, async (data) => {
       if(data.isChanged){
         console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.Estado}`);
@@ -121,6 +112,20 @@ export const createApp = async ({model}) => {
         //ACTUALIZA LOS IDS ACTIVOS
         tracker.update(data.ID_UUID);
       }
+    })
+
+//--------------------------------- SOCKET View_Central_CMD_Socket ------------------------------------ DEBUG = FALSE
+    socket.on(View_Central_CMD_Socket, async (data) => {
+      /*
+        data = {
+          action:
+          target: UUID / "ALL"
+          driver_id: UUID
+          price: float
+        }
+
+      */
+      await produceMessage(CENTRAL_CP_COMMANDS, data);
     })
 
     socket.on("disconnect", () => {
