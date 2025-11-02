@@ -172,6 +172,10 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
   switch (topic) {
     case DRIVER_COMMANDS:
       switch (data.action){
+//--------------------------------- CASE REGISTER ----------------------------------- DEBUG = FALSE
+        case "REGISTER":
+        //TODO IMPLEMENTAR ?????
+        break;
 //--------------------------------- CASE READALL ------------------------------------ DEBUG = FALSE
         case "READALL":
 
