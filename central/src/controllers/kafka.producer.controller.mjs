@@ -13,9 +13,9 @@ export async function produceMessage(topic, message) {
 
     await producer.send({
         topic: topic,
-        messages: [{ value: message}]
+        messages: [{ value: JSON.stringify(message)}]
     })
 
-    console.log("Enviando mensaje", message);
+    console.log("Enviando mensaje -> ", message);
     await producer.disconnect()
 }

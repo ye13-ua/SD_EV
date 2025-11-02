@@ -30,7 +30,7 @@ export const createApp = async ({model}) => {
   
   //Borra la base de datos al iniciar la app: DEBUG
   await sequelize.sync(  
-    //{force: true} 
+    {force: true} 
   ); //TODO Quitar force 
 
   //Puerto que se saca de 
@@ -140,8 +140,7 @@ export const createApp = async ({model}) => {
       //AGREGA A ACTIVE CP
       if(!exists) {
         try {
-          console.log("BEFORE READED",data)
-          readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
+          const readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
           const cp = readed.data;
           ActiveCPs.push({...cp, ...data});
         
@@ -165,14 +164,17 @@ export const createApp = async ({model}) => {
         }
 
       */
-      try {
-        //console.log(`${CPsEndPoint}:${data.target}`, data.price) {Precio_KWH: data.price}
-        await axios.patch(`${CPsEndPoint}/${data.target}`, {Precio_KWH: data.price});
+      if(data.action === "UPDATE_PRICE") {
+        try {
+          //console.log(`${CPsEndPoint}:${data.target}`, data.price) {Precio_KWH: data.price}
+          await axios.patch(`${CPsEndPoint}/${data.target}`, {Precio_KWH: data.price});
 
-      } catch (err) {
-        console.log("Error en -> ",err);
-      }
+        } catch (err) {
+          console.log("Error en -> ",err);
+        }
       
+      }
+
       await produceMessage(CENTRAL_CP_COMMANDS, data);
     })
 
