@@ -157,8 +157,10 @@ def handle_engine():
 
         CP_STATUS_CHANGED = current_report != last_report
         last_report = current_report
-        
-        send_status_to_central(status, kafka_ok)
+        try:
+            send_status_to_central(status, kafka_ok)
+        except Exception as e:
+            print(f"[[{CP_ALIAS}]] Could not send data to Central: {e}")
         
         time.sleep(PING_INTERVAL)
 
