@@ -129,6 +129,14 @@ def disconnect_vehicle(producer, driver_info, cp_id):
     save_driver_state()
     print(f"[Driver] Desconexión forzosa para CP:{cp_id}")
 
+def request_readall(producer):
+    msg = {
+        "action": "READALL",
+        "driver_id": driver_info["id"]
+    }
+    safe_send(producer, "Driver.Commands", msg)
+    print(f"[Driver] Solicitando listado de CPs disponibles...")
+
 def listen_to_central(producer, consumer, stop_event, driver_info):
     for msg in consumer:
         if stop_event.is_set():
@@ -192,6 +200,7 @@ HTML_TEMPLATE = """
 
     <button onclick="requestCharge()">Solicitar carga aleatoria</button>
     <button onclick="disconnect()">Desconectar</button>
+    <button onclick="refreshCPs()">Actualizar CPs</button>
     
     <div class="info" id="status">Cargando estado...</div>
 
@@ -232,6 +241,11 @@ HTML_TEMPLATE = """
         updateStatus();
     }
 
+    async function refreshCPs(){
+        await fetch('/readall', {method: 'POST'});
+        updateStatus();
+    }
+
     setInterval(updateStatus, 2000);
     updateStatus();
     </script>
@@ -265,6 +279,11 @@ def api_status():
         "available_cps": available_cps
     })
 
+@app.route("/readall", methods=["POST"])
+def api_readall():
+    request_readall(app.producer, driver_info)
+    return jsonify({"ok": True})
+
 def wait_for_kafka(broker, retries = 15, delay = 3):
     for attempt in range (1, retries+1):
         try:
@@ -297,6 +316,8 @@ def main():
 
     driver_info = load_or_register_driver(app.producer)
     print(f"[Driver] App ready for use || ID:{driver_info['id']} Alias:{driver_info['alias']}")
+
+    request_readall(app.producer)
 
     stop_event = threading.Event()
     threading.Thread(target=listen_to_central, args=(app.producer, consumer, stop_event, driver_info), daemon=True).start()
