@@ -256,6 +256,7 @@ def simulate_app_use():
         CP_CHARGE_PRICE += CP_PRICE
         time.sleep(1)
     CP_CHARGE_PRICE = 0
+    CP_STATUS = "ACTIVE"
 
 def save_current_session():
     session = {
