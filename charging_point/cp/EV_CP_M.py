@@ -41,8 +41,6 @@ CP_STATUS_CHANGED = False
 already_charged = 0.0
 target_kwh = 0.0
 driver_id = None
-current_cost = 0
-price_kwh = 0
 
 sio = socketio.Client()
 
@@ -123,7 +121,7 @@ def ping_engine(action):
 # Handler of infinite pings
 def handle_engine():
     global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged, CP_DEFAULT_PRICE
-    global target_kwh, current_cost, price_kwh
+    global target_kwh
     # By default there was no report yet
     last_report = None
     last_local_request = None
@@ -148,15 +146,11 @@ def handle_engine():
                     send_charging_petition_to_central(req["driver_id"], req["target_kwh"])
                     last_local_request = req
             if status == "CHARGING_CENTRAL":
-                already_charged = reply.get("charging_process", 0.0)
-                target_kwh = reply.get("target_kwh", 0.0)
-                current_cost = reply.get("current_cost", 0.0)
-                price_kwh = reply.get("price_kwh", CP_DEFAULT_PRICE)
+                already_charged = float(reply.get("charging_process", 0.0) or 0.0)
+                target_kwh = float(reply.get("target_kwh", 0.0) or 0.0)
             else:
                 already_charged = 0.0
                 target_kwh = 0.0
-                current_cost = 0.0
-                price_kwh = reply.get("price_kwh", CP_DEFAULT_PRICE)
 
             kafka_ok = reply.get("kafka_ok",True)
             car_status = reply.get("car_connected",False)
@@ -200,7 +194,6 @@ def send_status_to_central(status, kafka_ok):
            "Timestamp": time.strftime("%H:%M:%S")}
     sio.emit("CP_Central_Status_Socket", msg)
     last_central_contact = time.strftime("%H:%M:%S")
-    already_charged = 0.0
 
 #
 def send_charging_petition_to_central(driver_id, target_charge):
@@ -252,13 +245,11 @@ TEMPLATE = """
     </p>
     <p><b>Coche conectado:</b> {{ c_status }} </p>
     {% if status == 'CHARGING_CENTRAL' %}
-    <hr>
-    <h3>⚡ Proceso de carga en curso</h3>
-    <p><b>Progreso:</b> {{ "%.2f"|format(charged) }} / {{ "%.2f"|format(target) }} kWh</p>
-    <p><b>Precio por kWh:</b> {{ "%.3f"|format(unit_price) }} €</p>
-    <p><b>Costo acumulado:</b> {{ "%.2f"|format(cost) }} €</p>
-    <progress value="{{ charged }}" max="{{ target }}" style="width:100%; height:20px;"></progress>
-    {% endif %}
+  <hr>
+  <h3>Proceso de carga en curso</h3>
+  <p><b>Progreso:</b> {{ "%.2f"|format(charged) }} / {{ "%.2f"|format(target) }} kWh</p>
+  <progress value="{{ charged }}" max="{{ target }}" style="width:100%; height:20px;"></progress>
+{% endif %}
     <p><b>Kafka:</b> <span class="{{ 'status-ok' if kafka_ok else 'status-fail' }}">{{ 'OK' if kafka_ok else 'FALLO' }}</span></p>
     <p><b>Último ping:</b> {{ last_ping }}</p>
     <p><b>Último contacto con Central:</b> {{ last_central }}</p>
@@ -316,10 +307,8 @@ def index():
         last_ping=last_ping,
         last_central=last_central_contact,
         c_status=car_status,
-        charged=already_charged,
-        target=target_kwh,
-        cost=current_cost,
-        unit_price=price_kwh
+        charged=already_charged or 0.0,
+        target=target_kwh or 0.0,
     )
 
 @app.route("/simulate_monitor_down", methods=["POST"])

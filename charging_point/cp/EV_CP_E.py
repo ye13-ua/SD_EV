@@ -136,7 +136,7 @@ def listen_central_commands():
             "Central.CP.Commands",
             bootstrap_servers=KAFKA_BROKER,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            group_id="cp_engine_{CP_ID}"
+            group_id=f"cp_engine_{CP_ID}"
         )
         kafka_ok = True
         print(f"[Engine] Listening for commands from CENTRAL via Kafka...")
@@ -255,7 +255,10 @@ def simulate_app_use():
         if (CP_STATUS in ("OUT_OF_SERVICE", "BROKEN")):
             save_current_session()
             return
-        CP_CHARGE_PROCESS += 1
+        if (CP_CHARGE_PROCESS+1) <= CP_TARGET_CHARGE:
+            CP_CHARGE_PROCESS += 1
+        else:
+            CP_CHARGE_PROCESS += CP_TARGET_CHARGE-CP_CHARGE_PROCESS
         CP_CHARGE_PRICE += CP_PRICE
         time.sleep(1)
     CP_CHARGE_PROCESS = CP_TARGET_CHARGE

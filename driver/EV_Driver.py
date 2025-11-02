@@ -39,7 +39,6 @@ alias_list = [
     'Stephen Hawking'
 ]
 
-
 BROKER = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 INFO_FILE = "driver_info.json"
 STATE_FILE = "driver_state.json"
@@ -138,13 +137,13 @@ def request_readall(producer):
     print(f"[Driver] Solicitando listado de CPs disponibles...")
 
 def listen_to_central(producer, consumer, stop_event, driver_info):
+    global available_cps
     for msg in consumer:
         if stop_event.is_set():
             break
 
         data = msg.value
         action = data.get("action")
-
         if action == "CONNECT_CP_RESPONSE":
             if data.get("isValidated"):
                 cp_id = data.get("cp_id")
@@ -161,7 +160,6 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
             save_driver_state()
             print(f"[Driver] Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
-            global available_cps
             available_cps = data.get("cps", [])
             if not available_cps:
                 print(f"[Driver] No hay CPs activos")
@@ -182,81 +180,66 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = """
+TEMPLATE = """
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>EV Driver Interface</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 2em; }
-        button { margin: 0.5em; padding: 1em; border-radius: 8px; border: none; cursor: pointer; }
-        .info { margin-top: 1em; padding: 1em; border: 1px solid #ccc; border-radius: 8px; white-space: pre-line; }
-        .driver-info { background: #f0f0f0; padding: 1em; border-radius: 8px; }
-    </style>
+  <meta charset="utf-8">
+  <title>Driver {{ alias }}</title>
+  <meta http-equiv="refresh" content="2">
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 40px; background: #f8f9fa; }
+    .card { background: white; border-radius: 10px; padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 450px; }
+    button { margin: 5px; padding: 10px 15px; border-radius: 5px;
+             border: none; cursor: pointer; }
+    h2 { margin-top: 0; }
+    pre { background: #eee; padding: 10px; border-radius: 5px; }
+  </style>
 </head>
 <body>
-    <h2>EV Charging Driver</h2>
-    <div class="driver-info" id="driverInfo">Cargando información del conductor...</div>
-
-    <button onclick="requestCharge()">Solicitar carga aleatoria</button>
-    <button onclick="disconnect()">Desconectar</button>
-    <button onclick="refreshCPs()">Actualizar CPs</button>
-    
-    <div class="info" id="status">Cargando estado...</div>
-
-    <script>
-    async function updateStatus(){
-        const res = await fetch('/status');
-        const data = await res.json();
-
-        document.getElementById('driverInfo').innerText = 
-            "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
-
-        let statusText = 
-            "Estado: " + data.status +
-            (data.current_cp ? "\\nCP: " + data.current_cp : "") +
-            (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
-
-        // Mostrar CPs disponibles
-        if (data.available_cps && data.available_cps.length > 0) {
-            statusText += "\\n\\nPuntos activos:\\n";
-            for (const c of data.available_cps) {
-                statusText += " - " + (c.ID_UUID || "Desconocido") +
-                    " | Estado: " + (c.Estado || "N/A") +
-                    " | Precio: " + (c.Precio_KWH || "?") + " €/kWh" +
-                    " | Ubicación: " + (c.UbicacionLarga || "Sin ubicación") + "\\n";
-            }
-        }
-
-        document.getElementById('status').innerText = statusText;
-    }
-
-    async function requestCharge(){
-        await fetch('/charge', {method: 'POST'});
-        updateStatus();
-    }
-
-    async function disconnect(){
-        await fetch('/disconnect', {method: 'POST'});
-        updateStatus();
-    }
-
-    async function refreshCPs(){
-        await fetch('/readall', {method: 'POST'});
-        updateStatus();
-    }
-
-    setInterval(updateStatus, 2000);
-    updateStatus();
-    </script>
+  <div class="card">
+    <h2>Driver {{ alias }}</h2>
+    <p><b>UUID:</b> {{ uuid }}</p>
+    <hr>
+    <p><b>Estado:</b> {{ status }}</p>
+    {% if current_cp %}
+      <p><b>CP Actual:</b> {{ current_cp }}</p>
+    {% endif %}
+    {% if ticket %}
+      <p><b>Último Ticket:</b></p>
+      <pre>{{ ticket | tojson(indent=2) }}</pre>
+    {% endif %}
+    {% if cps %}
+      <hr>
+      <b>CPs activos:</b><br>
+      {% for cp in cps %}
+        - {{ cp['ID_UUID'] }} | {{ cp['Ubicacion'] }} | {{ cp['Precio_KWH'] }} €/kWh | {{ cp['UbicacionLarga'] }}<br>
+      {% endfor %}
+    {% endif %}
+    <hr>
+    <button style="background:#007bff;color:white;" onclick="fetch('/charge',{method:'POST'}).then(()=>location.reload())">Solicitar carga</button>
+    <button style="background:#dc3545;color:white;" onclick="fetch('/disconnect',{method:'POST'}).then(()=>location.reload())">Desconectar</button>
+    <button style="background:#28a745;color:white;" onclick="fetch('/readall',{method:'POST'}).then(()=>location.reload())">Actualizar CPs</button>
+  </div>
 </body>
 </html>
 """
 
 
+
 @app.route("/")
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    # Pasa valores simples, igual que el Monitor
+    return render_template_string(
+        TEMPLATE,
+        alias=driver_info["alias"],
+        uuid=driver_info["id"],
+        status=driver_state["status"],
+        current_cp=driver_state["current_cp"],
+        ticket=driver_state["last_ticket"],
+        cps=available_cps
+    )
 
 @app.route("/charge", methods=["POST"])
 def api_charge():
@@ -268,21 +251,19 @@ def api_disconnect():
     disconnect_vehicle(app.producer, driver_info, driver_state["current_cp"])
     return jsonify({"ok": True})
 
-@app.route("/status")
-def api_status():
-    return jsonify({
-        "status": driver_state["status"],
-        "current_cp": driver_state["current_cp"],
-        "last_ticket": driver_state["last_ticket"],
-        "driver_id": driver_info.get("id"),
-        "alias": driver_info.get("alias"),
-        "available_cps": available_cps
-    })
-
 @app.route("/readall", methods=["POST"])
 def api_readall():
-    request_readall(app.producer, driver_info)
+    request_readall(app.producer)
     return jsonify({"ok": True})
+
+@app.after_request
+def add_header(response):
+    response.cache_control.no_store = True
+    response.cache_control.no_cache = True
+    response.cache_control.must_revalidate = True
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 def wait_for_kafka(broker, retries = 15, delay = 3):
     for attempt in range (1, retries+1):
@@ -307,14 +288,15 @@ def main():
         value_serializer=lambda v: json.dumps(v).encode("utf-8")
     )
 
+    driver_info = load_or_register_driver(app.producer)
+
     consumer = KafkaConsumer(
         "Central.Driver.Commands",
         bootstrap_servers=BROKER,
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-        group_id="driver"
+        group_id=f"driver_{driver_info['id']}"
     )
 
-    driver_info = load_or_register_driver(app.producer)
     print(f"[Driver] App ready for use || ID:{driver_info['id']} Alias:{driver_info['alias']}")
 
     request_readall(app.producer)
@@ -324,7 +306,7 @@ def main():
 
     PORT = int(os.getenv("FLASK_PORT", "5000"))
     print(f"[Driver] Interfaz disponible en http://localhost:{PORT}")
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True, use_reloader=False)
 
 
 if __name__ == "__main__":
