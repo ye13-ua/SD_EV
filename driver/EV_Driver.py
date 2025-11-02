@@ -174,7 +174,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = HTML_TEMPLATE = """
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -195,53 +195,46 @@ HTML_TEMPLATE = HTML_TEMPLATE = """
     
     <div class="info" id="status">Cargando estado...</div>
 
-    document.getElementById('status').innerText =
-    "Estado: " + data.status +
-    (data.current_cp ? "\\nCP: " + data.current_cp : "") +
-    (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "") +
-    (data.available_cps?.length ? "\\n\\nPuntos activos:\\n" +
-        data.available_cps.map(c => ` - ${c.ID_UUID} (${c.state})`).join("\\n") : "");
-
     <script>
-async function updateStatus(){
-    const res = await fetch('/status');
-    const data = await res.json();
+    async function updateStatus(){
+        const res = await fetch('/status');
+        const data = await res.json();
 
-    document.getElementById('driverInfo').innerText = 
-        "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
+        document.getElementById('driverInfo').innerText = 
+            "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
 
-    let statusText = 
-        "Estado: " + data.status +
-        (data.current_cp ? "\\nCP: " + data.current_cp : "") +
-        (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
+        let statusText = 
+            "Estado: " + data.status +
+            (data.current_cp ? "\\nCP: " + data.current_cp : "") +
+            (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
 
-    // Mostrar CPs disponibles
-    if (data.available_cps && data.available_cps.length > 0) {
-        statusText += "\\n\\nPuntos activos:\\n";
-        for (const c of data.available_cps) {
-            statusText += " - " + (c.ID_UUID || "Desconocido") +
-                " | " + (c.Estado || "N/A") +
-                " | " + (c.Precio_KWH || "?") + " €/kWh" +
-                " | " + (c.UbicacionLarga || "Sin ubicación") + "\\n";
+        // Mostrar CPs disponibles
+        if (data.available_cps && data.available_cps.length > 0) {
+            statusText += "\\n\\nPuntos activos:\\n";
+            for (const c of data.available_cps) {
+                statusText += " - " + (c.ID_UUID || "Desconocido") +
+                    " | Estado: " + (c.Estado || "N/A") +
+                    " | Precio: " + (c.Precio_KWH || "?") + " €/kWh" +
+                    " | Ubicación: " + (c.UbicacionLarga || "Sin ubicación") + "\\n";
+            }
         }
+
+        document.getElementById('status').innerText = statusText;
     }
 
-    document.getElementById('status').innerText = statusText;
-}
+    async function requestCharge(){
+        await fetch('/charge', {method: 'POST'});
+        updateStatus();
+    }
 
-async function requestCharge(){
-    await fetch('/charge', {method: 'POST'});
+    async function disconnect(){
+        await fetch('/disconnect', {method: 'POST'});
+        updateStatus();
+    }
+
+    setInterval(updateStatus, 2000);
     updateStatus();
-}
-
-async function disconnect(){
-    await fetch('/disconnect', {method: 'POST'});
-    updateStatus();
-}
-
-setInterval(updateStatus, 2000);
-updateStatus();
-</script>
+    </script>
 </body>
 </html>
 """
