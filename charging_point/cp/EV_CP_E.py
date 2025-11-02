@@ -75,12 +75,11 @@ def handle_monitor(conn):
             return
 
         if action == "PING":
-            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED}
+            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED, "price_kwh": CP_PRICE}
             
             if CP_STATUS == "CHARGING_CENTRAL":
                 response.update({
                 "target_kwh": CP_TARGET_CHARGE,
-                "price_kwh": CP_PRICE,
                 "current_cost": CP_CHARGE_PRICE,
                 "charging_process": CP_CHARGE_PROCESS,
                 "driver_id": CP_DRIVER_ID
