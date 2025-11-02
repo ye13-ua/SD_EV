@@ -95,6 +95,7 @@ export const createApp = async ({model}) => {
 
 //--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
     socket.on(CP_Central_Status_Socket, async (data) => {
+      io.emit("Central_View_Status_Socket",data); // AGREGAR A DATOS
       //--------------------------------- FUNCION QUE ENVIA EL TICKET ---------------------------------
       if(data.isChanged){
 
@@ -295,7 +296,8 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
             console.log(centralLogs.logs);
             produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
 
-            const active = ActiveCPs.find(e => e.Estado === "ACTIVE");
+            const active = ActiveCPs.find(e => e.Estado === "ACTIVE" || e.Estado === "WAITING");
+            
             if(active){
               driverResponse.cp_id = active.ID_UUID;
               driverResponse.isValidated = true;

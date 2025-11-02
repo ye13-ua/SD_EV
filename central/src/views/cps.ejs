@@ -43,6 +43,7 @@
           <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
           <p>Precio: <%= cp.Precio_KWH %> KW/h</p>
           <p id="state"></p>
+          <p id="alreadyCharged"></p>
           
           <button class="startButton">Start</button>
           <button class="stopButton">Stop</button>
@@ -62,9 +63,8 @@
   <script>
     const socket = io();
     const ALLCPS = JSON.parse('<%- JSON.stringify(readedCPs)%>');
-    //--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
-    socket.on("CP_Central_Status_Socket", (data) => {      
-
+    //--------------------------------- SOCKET Central_View_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
+    socket.on("Central_View_Status_Socket", (data) => {      
       /*
         data = {
           ID_UUID: UUID,
@@ -77,8 +77,10 @@
         }
 
       */
-      const state = cp.getElementById("state");
+      console.log(data);
       const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
+
+      //const state = cp.getElementById("state");
         /*
           Switch de cambio de estado.
           ¿Porque no mira isChanged antes de aplicar los cambios?
@@ -90,31 +92,31 @@
         
         case "DISCONNECTED": // NO ES UN ESTADO REAL
           cp.style.backgroundColor = "darkgray";
-          state.textContent = "Desconectado";
+          //state.textContent = "Desconectado";
         break;
         
         case "ACTIVE":
           cp.style.backgroundColor = "lightgreen";
-          state.textContent = "Activo y operativo"
+          //state.textContent = "Activo y operativo"
         break;
           
         case "CHARGING_CENTRAL":
           cp.style.backgroundColor = "darkgreen";
-          state.textContent = `Vehiculo cargando: ${data.DriverID}`;
+          //state.textContent = `Vehiculo cargando: ${data.DriverID}`;
         break;
           
         case "WAITING":
           cp.style.backgroundColor = "orange";
-          state.textContent = "Parado"
+          //state.textContent = "Parado"
         break;
         case "BROKEN":
           cp.style.backgroundColor = "red";
-          state.textContent = "Roto";
+          //state.textContent = "Roto";
         break;
         default:
           //ESTADO POR DEFAULT
           cp.style.backgroundColor = "darkgray";
-          state.textContent = "Desconectado";
+          //state.textContent = "Desconectado";
         break;
       }
       
