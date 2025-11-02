@@ -1,7 +1,7 @@
 ##### EV_CP_Engine ##############################################################################################
 # ENV definitions:                                                                                              #
 # Default Engine port -> 7000                                                                                   #
-# Default Central port -> 8000                                                                                  #
+# Default Central port -> 4000                                                                                  #
 # Default Engine host -> "ev_cp_engine"                                                                         # 
 # Default Central host -> "ev_central"                                                                          # 
 # Default local UUID path -> "/app/cp_uuid.json"                                                                #
@@ -11,24 +11,7 @@
 #                                                                                                               #
 # env. dependencies -> cp_engine, central                                                                       #
 #                                                                                                               #
-# Communication:                                                                                                #                                            
-#   Register:                                                                                                   #                                        
-#       action: "REGISTER"                                                                                      #                                                    
-#       cp_id: CP ID                                                                                            #                                                
-#       alias: Alias                                                                                            #                                                
-#       location: Location                                                                                      #                                                    
-#       price:  Defaul price                                                                                    #                                                        
 #                                                                                                               #
-#   Engine ping:                                                                                                #
-#       action: "PING"                                                                                          #
-#       cp_id: CP ID                                                                                            #
-#                                                                                                               #
-#   Report to Central:                                                                                          #
-#       action: "REPORT"                                                                                        #
-#       cp_id: CP ID                                                                                            #
-#       status: Engine Status                                                                                   #
-#       kafka_ok: Kafka status                                                                                  #
-#       timestamp: timestamp                                                                                    #
 #################################################################################################################
 
 # Default libs

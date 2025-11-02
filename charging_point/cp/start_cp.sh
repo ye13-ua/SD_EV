@@ -14,3 +14,4 @@ python /app/EV_CP_M.py &
 
 # Mantener el contenedor vivo (control de señales)
 wait -n $ENGINE_PID
+wait
