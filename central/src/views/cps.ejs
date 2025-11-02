@@ -35,31 +35,49 @@
   <% if (readedCPs.error) { %>
     <p>Base de datos vacia</p>
   <% } else { %>
-    <div class="Cps-container">
+    <div id = "container" class="Cps-container">
       <% readedCPs.forEach(cp => { %>
-        <div class="Cps" id="<% cp.ID_UUID %>">
+        <div class="Cps" id = "<%= cp.ID_UUID %>" data-id="<%= cp.ID_UUID %>">
           <h2><%= cp.Ubicacion %></h2>
           <p>Id CP: <%= cp.ID_UUID %></p>
           <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
           <p>Precio: <%= cp.Precio_KWH %> KW/h</p>
-          <div>
-            <button>Boton 1</button>
-            <button>Boton 2</button>
-            <button>Boton 3</button>
-          </div>
+          
+          <button class="startButton">Start</button>
+          <button class="stopButton">Stop</button>
+          <button class="breakButton">Break</button>
+          <input class="priceInput" type="number" value="<%= cp.Precio_KWH %>">
+          <button class="updateButton">Update Price</button>
+          
         </div>
       <% }) %>
     </div>
-  <% } %>
+    <div class="Buttons-container">
+      <button id="startAllButton">Start ALL</button>
+      <button id="stopAllButton">Stop ALL</button>
+      <button id="breakAllButton">Break ALL</button>
+    </div>
+    <% } %>
   <script>
-    const socker = io();
-    //CP_Central_Status_Socket -> este parametro llega como readedCPs, basicamente en el controlador (controllers/CP.Controller.mjs) se puede ver como funciona
+    const socket = io();
+    const ALLCPS = JSON.parse('<%- JSON.stringify(readedCPs)%>');
+    //--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
+    socket.on("CP_Central_Status_Socket", (data) => {      
 
-    //SOCKET QUE SE ENCARGARA DE CAMBIAR DE ESTADO CUANDO RECIBE DATOS
-    socket.on(CP_Central_Status_Socket, (data) => {      
-      
+      /*
+        data = {
+          ID_UUID: UUID,
+          Estado: STATE,
+          isChanged: Boolean,
+          Timestamp: String,
+          KafkaOk: Boolean,
+          alreadyCharged: float,
+          DriverID:
+        }
+
+      */
+
       const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
-      
         /*
           Switch de cambio de estado.
           ¿Porque no mira isChanged antes de aplicar los cambios?
@@ -67,29 +85,128 @@
 
           Asumo que CP enviaran su estado cada x segundos, en ese caso tu recargas la pagina y todo se pone en desconectado, luego se conectan los sockets de CP y envian datos, tras esto ya se adopta el color correcto
         */
-        switch(data.Estado) {
-          case "Desconectado" || 1:
-            cp.style.backgroundColor = "darkgray";
-          break;
-          case "Operativo" || 2:
-            cp.style.backgroundColor = "lightgreen";
-          break;
-          case "Cargando" || 3:
-            cp.style.backgroundColor = "darkgreen";
-          break;
-          case "Parado" || 4:
-            cp.style.backgroundColor = "orange";
-          break;
-          case "Error" || 5:
-            cp.style.backgroundColor = "red";
-          break;
-          default:
-            cp.style.backgroundColor = "darkgray";
-          break;
+      switch(data.Estado) {
+        
+        case "DISCONNECTED": // NO ES UN ESTADO REAL
+          cp.style.backgroundColor = "darkgray";
+        break;
+        
+        case "ACTIVE":
+          cp.style.backgroundColor = "lightgreen";
+        break;
+          
+        case "CHARGING_CENTRAL":
+          cp.style.backgroundColor = "darkgreen";
+        break;
+          
+        case "WAITING":
+          cp.style.backgroundColor = "orange";
+        break;
+        case "BROKEN":
+          cp.style.backgroundColor = "red";
+        break;
+        default:
+          cp.style.backgroundColor = "darkgray";
+        break;
       }
       
     })
-  
+
+   
+    //--------------------------------- BUTTON START ALL ----------------------------------- //TODO DEBUG = FALSE
+    const startAllButton = document.getElementById("startAllButton");
+      startAllButton.addEventListener("click", () => {
+        const data = {
+          action: "START",
+          target: "ALL",
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+      })
+    //--------------------------------- BUTTON STOP ALL ----------------------------------- //TODO DEBUG = FALSE      
+    const stopAllButton = document.getElementById("stopAllButton");
+    stopAllButton.addEventListener("click", () => {
+      const data = {
+        action: "STOP",
+        target: "ALL",
+      }
+      socket.emit("View_Central_CMD_Socket", data)
+    })
+    //--------------------------------- BUTTON BREAK ALL ----------------------------------- //TODO DEBUG = FALSE
+    const breakAllButton = document.getElementById("breakAllButton");
+    breakAllButton.addEventListener("click", () => {
+      const data = {
+        action: "STOP",
+        target: "ALL",
+      }
+      console.log("BREAK ALL EVENT");
+      socket.emit("View_Central_CMD_Socket", data)
+    })
+    
+    
+//--------------------------------- Botones individuales ----------------------------------- //TODO DEBUG = FALSE
+    allcps = document.querySelectorAll(".Cps");
+    
+    allcps.forEach(item => {
+      const id = item.dataset.id;
+    //--------------------------------- BUTTON START ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".startButton").addEventListener("click", () => {
+        
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "START",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+
+      })
+    //--------------------------------- BUTTON STOP ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".stopButton").addEventListener("click", () => {
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "STOP",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    //--------------------------------- BUTTON BREAK ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".breakButton").addEventListener("click", () => {
+        
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "BREAK",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    //--------------------------------- BUTTON UPDATE ----------------------------------- //TODO DEBUG = FALSE
+      
+
+      item.querySelector(".updateButton").addEventListener("click", () => {
+        
+        newPrice = item.querySelector(".priceInput").value;
+
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "UPDATE_PRICE",
+          target: affectedCP.ID_UUID,
+          price: parseFloat(newPrice)
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    })
+
   </script>
 </body>
 </html>

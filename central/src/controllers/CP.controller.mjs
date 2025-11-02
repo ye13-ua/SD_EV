@@ -11,7 +11,6 @@ export class CPController {
         } else {
             res.render("cps", {
                 readedCPs,
-                CP_Central_Status_Socket: process.env.CP_CENTRAL_STATUS_SOCKET
             });
         }        
     }
@@ -48,5 +47,25 @@ export class CPController {
         }        
     }
     
+    Update = async (req, res) => {
+        
+        
+        const actualizacion = {
+            ID_UUID: req.params.id,
+            Precio_KWH: req.body.Precio_KWH,
+        }
+        
+        const CPactualizado = await this.CPModel.Update({body: actualizacion});
+        
+        if(!CPactualizado) {
+            return res.status(400).json({error: "Error al actualizar CP"})
+        } else if (CPactualizado.error) {
+            return res.status(400).json({error: CPactualizado.error})
+        } else {
+            return res.status(201).json(CPactualizado);
+        }
+
+    }
+
     //TODO: metodos CRUD?
 }

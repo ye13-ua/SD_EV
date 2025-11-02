@@ -74,4 +74,23 @@ export class CPModel {
             return
         }
     }
+    static async Update({body}) {
+        try {
+
+            const cp = await CP.findByPk(body.ID_UUID)
+            if (!cp) {
+                return {error: "No se encontro valor a actualizar"}
+            } else {
+
+                await cp.update({Precio_KWH: body.Precio_KWH});
+                
+                console.log(`CP con ${cp.ID_UUID} actualizado al precio -> ${cp.Precio_KWH}`);
+                
+                return true;
+            }
+        } catch (err) {
+            console.log("Error al actualizar",err); //TODO eliminar
+            return
+        }
+    }
 }

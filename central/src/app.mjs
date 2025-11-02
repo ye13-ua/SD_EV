@@ -67,25 +67,34 @@ export const createApp = async ({model}) => {
     
     console.log("Cliente conectado:", socket.id);
 
-//--------------------------------- SOCKET CP_Central_Create_Socket ----------------------------------- DEBUG = FALSE
+
+//--------------------------------- SOCKET CP_Central_Create_Socket ----------------------------------- //TODO DEBUG = FALSE
     socket.on(CP_Central_Create_Socket, async (data) => {
       try{
-        const response = await axios.post(CPsEndPoint, data);
+
+        const createCP = {
+          ID_UUID: data.ID_UUID,
+          Ubicacion: data.Ubicacion,
+          UbicacionLarga: data.UbicacionLarga,
+          Precio_KWH: data.Precio_KWH
+        }
+
+        const response = await axios.post(CPsEndPoint, createCP);
         if(!response.data.error) {
           console.log("CP Creado ->",response.data.ID_UUID);
           
           //AQUI SE DEBERIA DE ENVIAR UN STATUS CREATED
 
         } else {
-          console.log("Fallo al crear CP ->",response.data.error);
+          console.log("CP ya creado ->",response.data.error);
         } 
       } catch (err) {
         console.log("Error al enviar los datos a la db ->",err.message);
       }
     })
 
-//--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- DEBUG = FALSE
-    socket.on(CP_Central_Status_Socket, async (data) => {
+//--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
+    socket.on("CP_Central_Status_Socket", async (data) => {
       if(data.isChanged){
         console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.Estado}`);
       }
@@ -95,8 +104,8 @@ export const createApp = async ({model}) => {
      //ACTUALIZA EL ESTADO DE LOS ACTIVECPS en RAM
       ActiveCPs.forEach(e => {
         if(e.ID_UUID === data.ID_UUID){
-          e.Estado = data.Estado
-          e.Timestamp = data.Timestamp
+          e = {...e, ...data}
+
           exists = true
           //ACTUALIZA LOS IDS ACTIVOS
           tracker.update(data.ID_UUID);
@@ -105,16 +114,16 @@ export const createApp = async ({model}) => {
 
       //AGREGA A ACTIVE CP
       if(!exists) {
-        readed = await axios.get(`${CPsEndPoint}:${data.ID_UUID}`);
+        readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
         const cp = readed.data;
-        ActiveCPs.push({...cp, Estado: data.Estado});
+        ActiveCPs.push({...cp, ...data});
         
         //ACTUALIZA LOS IDS ACTIVOS
         tracker.update(data.ID_UUID);
       }
     })
 
-//--------------------------------- SOCKET View_Central_CMD_Socket ------------------------------------ DEBUG = FALSE
+//--------------------------------- SOCKET View_Central_CMD_Socket ------------------------------------ //TODO DEBUG = FALSE
     socket.on(View_Central_CMD_Socket, async (data) => {
       /*
         data = {
@@ -125,6 +134,14 @@ export const createApp = async ({model}) => {
         }
 
       */
+      try {
+        //console.log(`${CPsEndPoint}:${data.target}`, data.price) {Precio_KWH: data.price}
+        await axios.patch(`${CPsEndPoint}/${data.target}`, {Precio_KWH: data.price});
+
+      } catch (err) {
+        console.log("Error en -> ",err);
+      }
+      
       await produceMessage(CENTRAL_CP_COMMANDS, data);
     })
 
@@ -177,14 +194,10 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
   switch (topic) {
     case DRIVER_COMMANDS:
       switch (data.action){
-//--------------------------------- CASE REGISTER ----------------------------------- DEBUG = FALSE
-        case "REGISTER":
-        //TODO IMPLEMENTAR ?????
-        break;
-//--------------------------------- CASE READALL ------------------------------------ DEBUG = FALSE
+//--------------------------------- CASE READALL ------------------------------------ //TODO DEBUG = FALSE
         case "READALL":
 
-          //AQUI MIRA Y ACTUALIZA TODOS LOS CPS ACTICOS
+          //AQUI MIRA Y ACTUALIZA TODOS LOS CPS ACTICOS //TODO PONER FUNCION
           const ActiveCPs = ActiveCPs.filter(e => tracker.isActive(e.ID_UUID));
 
           data = {
@@ -196,7 +209,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
           produceMessage(CENTRAL_DRIVER_COMMANDS, data);
 
         break;
-//--------------------------------- CASE CONNECTCP ---------------------------------- DEBUG = FALSE
+//--------------------------------- CASE CONNECTCP ---------------------------------- //TODO DEBUG = FALSE
         case "CONNECTCP":
           // TODO VERIFICAR QUE LA VALIDACION NO SE HACE DESDE CENTRAL DE FORMA MANULA SINO QUE AQUI
           // TODO LOGS
@@ -284,7 +297,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 
           produceMessage(CENTRAL_DRIVER_COMMANDS, driverResponse);
         break;
-//--------------------------------- CASE DISCONNECT --------------------------------- DEBUG = FALSE
+//--------------------------------- CASE DISCONNECT --------------------------------- //TODO DEBUG = FALSE
         case "DISCONNECT":
           // CENTRAL.CP.COMMANDS -> action = DRIVER_DISCONNECT
           // CENTRAL.DRIVER.COMMANDS -> action = ticket
@@ -321,6 +334,4 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 runKafka().catch(console.error)
 
 await createApp({model: postgreModel})
-
-agregarCPs();
 
