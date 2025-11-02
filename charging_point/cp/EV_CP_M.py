@@ -119,7 +119,7 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
-    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged
+    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged, CP_DEFAULT_PRICE
     # By default there was no report yet
     last_report = None
     last_local_request = None
@@ -150,6 +150,7 @@ def handle_engine():
             car_status = reply.get("car_connected",False)
             driver_id = reply.get("driver_id",None)
     
+        CP_DEFAULT_PRICE = reply.get("price_kwh")
         last_ping = time.strftime("%H:%M:%S")
         engine_status = status
 
