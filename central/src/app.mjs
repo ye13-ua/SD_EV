@@ -232,7 +232,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
         case "READALL":
 
           //AQUI MIRA Y ACTUALIZA TODOS LOS CPS ACTICOS //TODO PONER FUNCION
-          const ActiveCPs = ActiveCPs.filter(e => tracker.isActive(e.ID_UUID));
+          ActiveCPs = ActiveCPs.filter(e => tracker.isActive(e.ID_UUID));
 
           const response = {
             action: "READALL_RESPONSE",
@@ -297,7 +297,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
             produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
 
             const active = ActiveCPs.find(e => e.Estado === "ACTIVE" || e.Estado === "WAITING");
-            
+
             if(active){
               driverResponse.cp_id = active.ID_UUID;
               driverResponse.isValidated = true;

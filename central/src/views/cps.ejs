@@ -90,8 +90,8 @@
         */
       switch(data.Estado) {
         
-        case "DISCONNECTED": // NO ES UN ESTADO REAL
-          cp.style.backgroundColor = "darkgray";
+        case "OUT_OF_SERVICE": // NO ES UN ESTADO REAL
+          cp.style.backgroundColor = "orange";
           //state.textContent = "Desconectado";
         break;
         
@@ -190,7 +190,7 @@
         const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
 
         const data = {
-          action: "BREAK",
+          action: "BROKEN",
           target: affectedCP.ID_UUID,
         }
 
