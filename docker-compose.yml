@@ -82,6 +82,45 @@ services:
     networks:
       - ev_net
   # ----------------------- CHARGING POINTS -----------------------
+  cp_pair:
+    build:
+      context: ./charging_point/cp
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BROKER: "kafka:9092"
+      CENTRAL_HOST: "http://central:4000"
+      ENGINE_PORT: "7000"
+      ENGINE_HOST: "0.0.0.0"
+      MONITOR_PORT: "9000"
+      CP_INDEX: "${HOSTNAME}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      central:
+        condition: service_started
+    ports:
+      - "9100-9199:9000"
+    networks: [ev_net]
+    restart: on-failure
+
+  # ----------------------- DRIVERS -----------------------
+  driver:
+    build:
+      context: ./driver
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      FLASK_PORT: "5000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      central:
+        condition: service_started
+    # UI del driver expuesta por réplica en rango 9200-9299
+    ports:
+      - "9200-9299:5000"
+    networks: [ev_net]
+    restart: on-failure
 
   # ----------------------- VOLUMES & NETWORKS -----------------------
 volumes:
