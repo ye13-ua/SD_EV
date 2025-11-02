@@ -102,7 +102,7 @@ export const createApp = async ({model}) => {
         
         const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
 
-        if (changedCP.Estado && changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
+        if (changedCP.Estado !== null && changedCP.Estado !== undefined && changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
           
           const cpDB = await axios.get(`${CPsEndPoint}/${ActiveCPs.ID_UUID}`);
 
