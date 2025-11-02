@@ -103,24 +103,27 @@ export const createApp = async ({model}) => {
         
         if (ActiveCPs.length !== 0){
 
-          const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
-  
           //TODO Remember FINISHED_CHARGING
           if (data.Estado === "FINISHED_CHARGING") {
+            try{  
+              const cpDB = await axios.get(`http://localhost:4000/CPs/${data.ID_UUID}`);
 
-            const cpDB = await axios.get(`${CPsEndPoint}/${ActiveCPs.ID_UUID}`);
+              console.log(cpDB.data);
 
-            const precio = cpDB.data.Precio_KWH * changedCP.alreadyCharged;
-            
-            const driverPayload = {
-              action: "TICKET",
-              driver_id: data.DriverID,
-              cp_id: data.ID_UUID,
-              price: precio 
+              const precio = cpDB.data.Precio_KWH * data.alreadyCharged;
+              
+              const driverPayload = {
+                action: "TICKET",
+                driver_id: data.DriverID,
+                cp_id: data.ID_UUID,
+                price: precio 
+              }
+
+              console.log("ENVIANDO TICKET ->",driverPayload);
+              produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
+            } catch(err){
+              console.log(err);
             }
-
-            console.log("ENVIANDO TICKET ->",driverPayload);
-            produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
           }
         }
         
