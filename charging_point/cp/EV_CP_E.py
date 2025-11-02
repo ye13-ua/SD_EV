@@ -39,6 +39,9 @@ CP_CAR_IS_CONNECTED = False
 CP_DRIVER_ID = None
 CP_DRIVER_ALIAS = None
 
+_consumer_started = False
+_consumer_lock = Lock()
+
 PENDING_LOCAL_REQ = False
 LOCAL_REQ = {
     "driver_id": CP_DRIVER_ID,
@@ -46,6 +49,15 @@ LOCAL_REQ = {
 }
 
 state_lock = Lock()
+
+def _start_kafka_consumer_if_needed():
+    global _consumer_started
+    with _consumer_lock:
+        if _consumer_started or not CP_ID:
+            return
+        t = threading.Thread(target=listen_central_commands, daemon=True)
+        t.start()
+        _consumer_started = True
 
 # Respond to ping from monitor
 def handle_monitor(conn):
@@ -90,10 +102,11 @@ def handle_monitor(conn):
             #    publish_status("ACTIVE")
         elif action == "AUTH":
             if CP_ID is None and "cp_id" in msg:
-                CP_ID = msg["cp_id"]
+                CP_ID = str(msg["cp_id"])
                 CP_PRICE = msg["cp_price"]
                 CP_STATUS = "AUTH_SUCCESS"
                 print (f"[Engine] Linked to CP_ID {CP_ID}")
+                _start_kafka_consumer_if_needed()
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
             conn.sendall(json.dumps(response).encode())
             CP_STATUS = "ACTIVE"
@@ -116,7 +129,7 @@ def handle_monitor(conn):
 
 # Listens for kafka topic commands
 def listen_central_commands():
-    global kafka_ok
+    global kafka_ok, CP_ID
     # Attempting to connect to cafca and retrieve topic relevant data
     try:
         # Consumer definition
@@ -124,7 +137,7 @@ def listen_central_commands():
             "Central.CP.Commands",
             bootstrap_servers=KAFKA_BROKER,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            group_id="cp_engines"
+            group_id="cp_engine_{CP_ID}"
         )
         kafka_ok = True
         print(f"[Engine] Listening for commands from CENTRAL via Kafka...")
@@ -134,7 +147,7 @@ def listen_central_commands():
             cmd = message.value
             target = cmd.get("target")
             # If we are a/the target we react accordingly
-            if target in [CP_ID, "ALL"]:
+            if str(target).upper() in (str(CP_ID).upper(), "ALL"):
                 print(f"[Engine] Received command from Central: {cmd}")
                 handle_central_command(cmd)
     except Exception as e:
@@ -297,10 +310,6 @@ def start_server():
     s.bind((HOST,PORT))
     s.listen()
     print(f"[{CP_ID}] Engine listening on port {PORT}")
-
-    # Creating a thread to listen for central commands
-    if CP_ID:
-        threading.Thread(target=listen_central_commands, daemon=True).start()
 
     # Monitor will persistently check the status via pings after connecting via sockets
     while True:
