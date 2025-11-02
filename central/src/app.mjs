@@ -343,7 +343,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 
           const activeCP = ActiveCPs.find(e => e.ID_UUID === data.cp_id);
 
-          const cpDB = await axios.get(`${CPsEndPoint}/${activeCP.ID_UUID}`);
+          const cpDB = await axios.get(`http://localhost:4000/CPs/${activeCP.ID_UUID}`);
 
           const precio = cpDB.data.Precio_KWH * activeCP.alreadyCharged;
           
