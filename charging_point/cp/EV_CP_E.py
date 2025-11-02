@@ -159,6 +159,9 @@ def handle_central_command(cmd):
     if CP_STATUS == "BROKEN":
         print(f"[Engine] Ignoring command while BROKEN: {cmd.get('action')}")
         return
+    if CP_STATUS == "FINISHED_CHARGING":
+        print(f"[Engine] Ignoring command 4 second timeout rule: {cmd.get('action')}")
+        return
     
     action = cmd.get("action", "").upper()
     if action == "STOP":

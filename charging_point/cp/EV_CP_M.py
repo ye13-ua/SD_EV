@@ -41,6 +41,8 @@ CP_STATUS_CHANGED = False
 already_charged = 0.0
 target_kwh = 0.0
 driver_id = None
+current_cost = 0
+price_kwh = 0
 
 sio = socketio.Client()
 
@@ -121,7 +123,7 @@ def ping_engine(action):
 # Handler of infinite pings
 def handle_engine():
     global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged, CP_DEFAULT_PRICE
-    global target_kwh
+    global target_kwh, current_cost, price_kwh
     # By default there was no report yet
     last_report = None
     last_local_request = None
@@ -146,11 +148,15 @@ def handle_engine():
                     send_charging_petition_to_central(req["driver_id"], req["target_kwh"])
                     last_local_request = req
             if status == "CHARGING_CENTRAL":
-                already_charged = reply.get("charging_process")
-                target_kwh = reply.get("target_kwh")
+                already_charged = reply.get("charging_process", 0.0)
+                target_kwh = reply.get("target_kwh", 0.0)
+                current_cost = reply.get("current_cost", 0.0)
+                price_kwh = reply.get("price_kwh", CP_DEFAULT_PRICE)
             else:
                 already_charged = 0.0
                 target_kwh = 0.0
+                current_cost = 0.0
+                price_kwh = reply.get("price_kwh", CP_DEFAULT_PRICE)
 
             kafka_ok = reply.get("kafka_ok",True)
             car_status = reply.get("car_connected",False)
@@ -312,6 +318,8 @@ def index():
         c_status=car_status,
         charged=already_charged,
         target=target_kwh,
+        cost=current_cost,
+        unit_price=price_kwh
     )
 
 @app.route("/simulate_monitor_down", methods=["POST"])
