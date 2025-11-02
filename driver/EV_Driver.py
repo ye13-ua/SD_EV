@@ -1,6 +1,7 @@
 ## Driver de prueba igual que dummy_central, es una solución temporal àra verificar funcionamiento de kafka y CPs
 
 from kafka import KafkaProducer, KafkaConsumer
+from kafka.errors import KafkaError
 import json
 import os
 import random
@@ -41,6 +42,9 @@ alias_list = [
 
 BROKER = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 INFO_FILE = "driver_info.json"
+STATE_FILE = "driver_state.json"
+
+available_cps = []
 
 driver_info = {}
 driver_state = {"status": "IDLE", "current_cp": None, "last_ticket": None}
@@ -81,6 +85,24 @@ def load_or_register_driver(producer):
 #                 json.dump({"alias": data["alias"], "id": driver_id}, f)
 #             return driver_id
 
+def safe_send(producer, topic, message):
+    try:
+        producer.send(topic, message)
+        producer.flush()
+    except KafkaError as e:
+        driver_state["status"] = "ERROR: Central no disponible"
+        print(f"[Driver] Error enviando Kafka: {e}")
+
+def save_driver_state():
+    with open(STATE_FILE, "w") as f:
+        json.dump(driver_state, f)
+
+def load_driver_state():
+    global driver_state
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r") as f:
+            driver_state = json.load(f)
+
 def request_charge(producer, driver_info, cp_id=None):
     msg = {
         "action": "CONNECTCP",
@@ -89,8 +111,7 @@ def request_charge(producer, driver_info, cp_id=None):
         "charge": round(random.uniform(3, 12), 2)
     }
 
-    producer.send("Driver.Commands", msg)
-    producer.flush()
+    safe_send(producer, "Driver.Commands", msg)
     driver_state["status"] = f"Requested charge at {msg['cp_id']}"
     print(f"[Driver] Solicitando carga en: {msg['cp_id']}")
 
@@ -102,10 +123,10 @@ def disconnect_vehicle(producer, driver_info, cp_id):
         "driver_id": driver_info["id"],
         "cp_id": cp_id
     }
-    producer.send("Driver.Commands", msg)
-    producer.flush()
+    safe_send(producer, "Driver.Commands", msg)
     driver_state["status"] = f"Disconnected from {driver_state['current_cp']}"
     driver_state["current_cp"] = None
+    save_driver_state()
     print(f"[Driver] Desconexión forzosa para CP:{cp_id}")
 
 def listen_to_central(producer, consumer, stop_event, driver_info):
@@ -121,6 +142,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
                 cp_id = data.get("cp_id")
                 driver_state["current_cp"] = cp_id
                 driver_state["status"] = f"Conectado a CP {cp_id}"
+                save_driver_state()
                 print(f"[Driver] Conexión validada con {cp_id}")
             else:
                 driver_state["status"] = "Conexión denegada"
@@ -128,13 +150,23 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         elif action == "TICKET":
             driver_state["last_ticket"] = data
             driver_state["status"] = "Carga completada"
+            save_driver_state()
             print(f"[Driver] Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
-            # TODO REVIEW THIS PART JUST IN CASE
-            cps = data.get("cps", [])
-            print("[Driver] Lista de puntos disponibles:")
-            for cp in cps:
-                print(f"    - {cp['cp_id']}")
+            global available_cps
+            available_cps = data.get("cps", [])
+            if not available_cps:
+                print(f"[Driver] No hay CPs activos")
+                return
+            
+            print(f"[Driver] Lista de puntos disponibles ({len(available_cps)}):")
+            for cp in available_cps:
+                cp_id = cp.get("ID_UUID")
+                cp_alias = cp.get("Ubicacion")
+                cp_location = cp.get("UbicacionLarga")
+                cp_precio = cp.get("Precio_KWH")
+                cp_state = cp.get("Estado")
+                print(f"ID: {cp_id} | Estado: {cp_state} | Precio: {cp_precio} €/kWh | Ubicación: {cp_location} | Alias: {cp_alias}")
         elif action == "DISCONNECT":
             disconnect_vehicle(producer, driver_info, data.get("cp_id"))
         elif action == "CONNECTION_LOGS":
@@ -162,6 +194,13 @@ HTML_TEMPLATE = HTML_TEMPLATE = """
     <button onclick="disconnect()">Desconectar</button>
     
     <div class="info" id="status">Cargando estado...</div>
+
+    document.getElementById('status').innerText =
+    "Estado: " + data.status +
+    (data.current_cp ? "\\nCP: " + data.current_cp : "") +
+    (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "") +
+    (data.available_cps?.length ? "\\n\\nPuntos activos:\\n" +
+        data.available_cps.map(c => ` - ${c.ID_UUID} (${c.state})`).join("\\n") : "");
 
     <script>
     async function updateStatus(){
@@ -214,7 +253,8 @@ def api_status():
         "current_cp": driver_state["current_cp"],
         "last_ticket": driver_state["last_ticket"],
         "driver_id": driver_info.get("id"),
-        "alias": driver_info.get("alias")
+        "alias": driver_info.get("alias"),
+        "available_cps": available_cps
     })
 
 def wait_for_kafka(broker, retries = 15, delay = 3):
@@ -231,6 +271,7 @@ def wait_for_kafka(broker, retries = 15, delay = 3):
 
 def main():
     global driver_info
+    load_driver_state()
 
     wait_for_kafka(BROKER)
 

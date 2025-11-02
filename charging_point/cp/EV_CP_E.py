@@ -213,7 +213,8 @@ def simulate_driver_disconnect():
 # Simulates using the CP's own interface to recharge the car
 def simulate_local_use():
     global CP_STATUS, CP_TARGET_CHARGE, CP_CAR_IS_CONNECTED, CP_DRIVER_ID, PENDING_LOCAL_REQ, LOCAL_REQ
-    
+    if CP_STATUS == "CHARGING_CENTRAL":
+        return
     with state_lock:
         CP_CAR_IS_CONNECTED = True
         CP_STATUS = "WAITING"
