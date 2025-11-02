@@ -203,30 +203,45 @@ HTML_TEMPLATE = HTML_TEMPLATE = """
         data.available_cps.map(c => ` - ${c.ID_UUID} (${c.state})`).join("\\n") : "");
 
     <script>
-    async function updateStatus(){
-        const res = await fetch('/status');
-        const data = await res.json();
-        document.getElementById('driverInfo').innerText = 
-            "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
-        document.getElementById('status').innerText = 
-            "Estado: " + data.status + 
-            (data.current_cp ? "\\nCP: " + data.current_cp : "") +
-            (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
+async function updateStatus(){
+    const res = await fetch('/status');
+    const data = await res.json();
+
+    document.getElementById('driverInfo').innerText = 
+        "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
+
+    let statusText = 
+        "Estado: " + data.status +
+        (data.current_cp ? "\\nCP: " + data.current_cp : "") +
+        (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
+
+    // Mostrar CPs disponibles
+    if (data.available_cps && data.available_cps.length > 0) {
+        statusText += "\\n\\nPuntos activos:\\n";
+        for (const c of data.available_cps) {
+            statusText += " - " + (c.ID_UUID || "Desconocido") +
+                " | " + (c.Estado || "N/A") +
+                " | " + (c.Precio_KWH || "?") + " €/kWh" +
+                " | " + (c.UbicacionLarga || "Sin ubicación") + "\\n";
+        }
     }
 
-    async function requestCharge(){
-        await fetch('/charge', {method: 'POST'});
-        updateStatus();
-    }
+    document.getElementById('status').innerText = statusText;
+}
 
-    async function disconnect(){
-        await fetch('/disconnect', {method: 'POST'});
-        updateStatus();
-    }
-
-    setInterval(updateStatus, 2000);
+async function requestCharge(){
+    await fetch('/charge', {method: 'POST'});
     updateStatus();
-    </script>
+}
+
+async function disconnect(){
+    await fetch('/disconnect', {method: 'POST'});
+    updateStatus();
+}
+
+setInterval(updateStatus, 2000);
+updateStatus();
+</script>
 </body>
 </html>
 """
