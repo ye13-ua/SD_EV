@@ -71,9 +71,7 @@ export const createApp = async ({model}) => {
 //--------------------------------- SOCKET CP_Central_Create_Socket ----------------------------------- //TODO DEBUG = FALSE
     socket.on(CP_Central_Create_Socket, async (data) => {
       try{
-        
-        console.log("DATOS LLEGADOS", data);
-
+  
         const createCP = {
           ID_UUID: data.ID_UUID,
           Ubicacion: data.Ubicacion,
@@ -142,7 +140,7 @@ export const createApp = async ({model}) => {
       //AGREGA A ACTIVE CP
       if(!exists) {
         try {
-          
+          console.log("BEFORE READED",data)
           readed = await axios.get(`${CPsEndPoint}/${data.ID_UUID}`);
           const cp = readed.data;
           ActiveCPs.push({...cp, ...data});
