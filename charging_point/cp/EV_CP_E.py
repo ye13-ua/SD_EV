@@ -50,12 +50,17 @@ state_lock = Lock()
 # Respond to ping from monitor
 def handle_monitor(conn):
     global kafka_ok, CP_ID, CP_STATUS, CP_PRICE, CP_DRIVER_ID
+
     try:
         data = conn.recv(1024)
         if not data:
             return
         msg = json.loads(data.decode())
         action = msg.get("action")
+
+        if CP_STATUS == "BROKEN":
+            print(f"[Engine] Ignoring monitor while BROKEN")
+            return
 
         if action == "PING":
             response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED}
@@ -77,6 +82,8 @@ def handle_monitor(conn):
                         "target_kwh": LOCAL_REQ["target_kwh"]
                     }
                 })
+
+            
             
             conn.sendall(json.dumps(response).encode())
             #if CP_ID:
@@ -90,6 +97,17 @@ def handle_monitor(conn):
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
             conn.sendall(json.dumps(response).encode())
             CP_STATUS = "ACTIVE"
+        
+        elif action == "SIMULATE_LOCAL":
+            simulate_local_use()
+            response = {"status": "WAITING", "local_request": LOCAL_REQ}
+            conn.sendall(json.dumps(response).encode())
+        
+        elif action == "SIMULATE_ENGINE_DOWN":
+            threading.Thread(target=simulate_engine_down, args=(12,), daemon=True).start()
+            response = {"status": "BROKEN", "kafka_ok": kafka_ok}
+            conn.sendall(json.dumps(response).encode())
+
 
     except Exception as e:
         print(f"[Engine] Error handling monitor: {e}")
@@ -125,6 +143,11 @@ def listen_central_commands():
 # Handles command recieved via kafka from the central
 def handle_central_command(cmd):
     global PENDING_LOCAL_REQ, CP_STATUS, CP_DRIVER_ID, CP_CAR_IS_CONNECTED, CP_TARGET_CHARGE, CP_PRICE
+    
+    if CP_STATUS == "BROKEN":
+        print(f"[Engine] Ignoring command while BROKEN: {cmd.get('action')}")
+        return
+    
     action = cmd.get("action", "").upper()
     if action == "STOP":
         with state_lock:
@@ -169,6 +192,15 @@ def simulate_local_fault():
     global CP_STATUS
     CP_STATUS = "BROKEN"
 
+def simulate_engine_down(t=12):
+    global CP_STATUS
+    print(f"[Engine] Simulating ENGINE DOWN for {t} seconds...")
+    prev_status = CP_STATUS
+    CP_STATUS = "BROKEN"
+    time.sleep(t)
+    CP_STATUS = prev_status if prev_status != "BROKEN" else "ACTIVE"
+    print("[Engine] ENGINE recovered.")
+
 def simulate_driver_disconnect():
     global CP_STATUS, CP_TARGET_CHARGE, CP_CAR_IS_CONNECTED, CP_DRIVER_ID, PENDING_LOCAL_REQ, LOCAL_REQ
     
@@ -181,7 +213,8 @@ def simulate_driver_disconnect():
 # Simulates using the CP's own interface to recharge the car
 def simulate_local_use():
     global CP_STATUS, CP_TARGET_CHARGE, CP_CAR_IS_CONNECTED, CP_DRIVER_ID, PENDING_LOCAL_REQ, LOCAL_REQ
-    
+    if CP_STATUS == "CHARGING_CENTRAL":
+        return
     with state_lock:
         CP_CAR_IS_CONNECTED = True
         CP_STATUS = "WAITING"
