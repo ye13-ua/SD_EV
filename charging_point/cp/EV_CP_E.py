@@ -191,7 +191,7 @@ def handle_central_command(cmd):
                 save_current_session()
             if CP_STATUS == "WAITING":
                 PENDING_LOCAL_REQ = False
-        simulate_local_fault()
+        simulate_engine_down()
         return
     elif action == "DRIVER_DISCONNECT":
         simulate_driver_disconnect()
