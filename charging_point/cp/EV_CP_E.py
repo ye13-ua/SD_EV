@@ -255,6 +255,7 @@ def simulate_app_use():
         CP_CHARGE_PROCESS += 1
         CP_CHARGE_PRICE += CP_PRICE
         time.sleep(1)
+    CP_CHARGE_PROCESS = CP_TARGET_CHARGE
     CP_CHARGE_PRICE = 0
     CP_STATUS = "FINISHED_CHARGING"
     time.sleep(4)
