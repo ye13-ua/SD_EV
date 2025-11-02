@@ -221,21 +221,18 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
           //AQUI MIRA Y ACTUALIZA TODOS LOS CPS ACTICOS //TODO PONER FUNCION
           const ActiveCPs = ActiveCPs.filter(e => tracker.isActive(e.ID_UUID));
 
-          data = {
+          const response = {
             action: "READALL_RESPONSE",
             driver_id: data.driver_id,
             cps: ActiveCPs
           }
           //ENVIAR DE VUELTA TODOS LOS CPS
-          produceMessage(CENTRAL_DRIVER_COMMANDS, data);
+          produceMessage(CENTRAL_DRIVER_COMMANDS, response);
 
         break;
 //--------------------------------- CASE CONNECTCP ---------------------------------- //TODO DEBUG = FALSE
         case "CONNECTCP":
-          // TODO VERIFICAR QUE LA VALIDACION NO SE HACE DESDE CENTRAL DE FORMA MANULA SINO QUE AQUI
-          // TODO LOGS
-          // TODO MOSTRAR CONEXION DE DRIVER CON CP EN FRONT
-
+          
           // PEDIR CONFIRMACIÓN A CP PARA LA CONEXION VIENDO EL ESTADO POR SOCKETS
           // DENEGAR O ACEPTAR POR CENTRAL.DRIVER.COMMANDS
 
