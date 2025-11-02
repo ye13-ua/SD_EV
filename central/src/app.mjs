@@ -104,9 +104,10 @@ export const createApp = async ({model}) => {
         if (ActiveCPs.length !== 0){
 
           const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
-        
-          if (changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
-          
+  
+          //TODO Remember FINISHED_CHARGING
+          if (data.Estado === "FINISHED_CHARGING") {
+
             const cpDB = await axios.get(`${CPsEndPoint}/${ActiveCPs.ID_UUID}`);
 
             const precio = cpDB.data.Precio_KWH * changedCP.alreadyCharged;
@@ -118,6 +119,7 @@ export const createApp = async ({model}) => {
               price: precio 
             }
 
+            console.log("ENVIANDO TICKET ->",driverPayload);
             produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
           }
         }
@@ -360,6 +362,9 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
               action: "DRIVER_DISCONNECT",
               driver_id: data.driver_id
           }
+
+          console.log("ENVIANDO TICKET ->",driverPayload);
+
           produceMessage(CENTRAL_CP_COMMANDS, CPPayload)
           produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
         break;
