@@ -56,6 +56,7 @@ MONITOR_DOWN = False
 
 CP_STATUS_CHANGED = False
 already_charged = 0.0
+driver_id = None
 
 sio = socketio.Client()
 
@@ -135,7 +136,7 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
-    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED
+    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged
     # By default there was no report yet
     last_report = None
     last_local_request = None
@@ -164,6 +165,7 @@ def handle_engine():
 
             kafka_ok = reply.get("kafka_ok",True)
             car_status = reply.get("car_connected",False)
+            driver_id = reply.get("driver_id",None)
     
         last_ping = time.strftime("%H:%M:%S")
         engine_status = status
@@ -188,14 +190,16 @@ def register_CP_in_central():
 
 # Sends, on change, the status of the charging point
 def send_status_to_central(status, kafka_ok):
-    global last_central_contact, already_charged
+    global last_central_contact, already_charged, driver_id
     msg = {"ID_UUID": CP_ID,
            "Estado": status,
            "KafkaOk": kafka_ok,
            "isChanged": CP_STATUS_CHANGED,
            "alreadyCharged": already_charged,
+           "DriverID": driver_id,
            "Timestamp": time.strftime("%H:%M:%S")}
     sio.emit("CP_Central_Status_Socket", msg)
+    last_central_contact = time.strftime("%H:%M:%S")
     already_charged = 0.0
 
 #
@@ -251,15 +255,38 @@ TEMPLATE = """
     <p><b>Último ping:</b> {{ last_ping }}</p>
     <p><b>Último contacto con Central:</b> {{ last_central }}</p>
     <hr>
-    <button onclick="simulateMonitorDown()" style="padding:10px 15px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">
-      Simular avería
+    <button onclick="simulateMonitorDown()" 
+            style="padding:10px 15px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">
+    Simular avería
     </button>
 
+    <button onclick="simulateLocalUse()" 
+            style="padding:10px 15px; background:green; color:white; border:none; border-radius:5px; cursor:pointer;">
+    Simular uso local
+    </button>
+
+    <button onclick="simulateEngineDown()" 
+            style="padding:10px 15px; background:orange; color:white; border:none; border-radius:5px; cursor:pointer;">
+    Simular avería Engine
+    </button>
+    
     <script>
       async function simulateMonitorDown() {
         const res = await fetch('/simulate_monitor_down', {method:'POST'});
         if (res.ok) alert('Simulación de la caída del monitor');
         else alert('Error al activar simulación');
+      }
+
+      async function simulateLocalUse() {
+        const res = await fetch('/simulate_local_use', {method:'POST'});
+        if (res.ok) alert('Simulación de uso local activada');
+        else alert('Error al simular uso local');
+      }
+
+      async function simulateEngineDown() {
+        const res = await fetch('/simulate_engine_down', {method:'POST'});
+        if (res.ok) alert('Avería del engine simulada');
+        else alert('Error al simular avería del engine');
       }
     </script>
 
@@ -293,6 +320,24 @@ def favicon():
     from flask import Response
     # Devuelve un favicon vacío para evitar el 404
     return Response(status=204)
+
+@app.route("/simulate_local_use", methods=["POST"])
+def trigger_local_use():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ENGINE_HOST, ENGINE_PORT))
+        payload = {"action": "SIMULATE_LOCAL"}
+        s.sendall(json.dumps(payload).encode())
+    return jsonify({"message": "Uso local simulado"}), 200
+
+@app.route("/simulate_engine_down", methods=["POST"])
+def trigger_engine_down():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ENGINE_HOST, ENGINE_PORT))
+        payload = {"action": "SIMULATE_ENGINE_DOWN"}
+        s.sendall(json.dumps(payload).encode())
+    return jsonify({"message": "Simulación de avería del engine activada"}), 200
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
 def main():

@@ -6,8 +6,38 @@ import os
 import random
 import threading
 import time
+import uuid
 
 from flask import Flask, render_template_string, jsonify
+
+alias_list = [
+    'Julio César',
+    'Alejandro Magno',
+    'Ada Lovelace',
+    'Alan Turing',
+    'Juana de Arco',
+    'Leonardo da Vinci',
+    'Isaac Newton',
+    'Marie Curie',
+    'Nikola Tesla',
+    'Albert Einstein',
+    'Galileo Galilei',
+    'Hipatia de Alejandría',
+    'Sofía Kovalevskaya',
+    'Charles Babbage',
+    'Grace Hopper',
+    'Carl Gauss',
+    'Arquímedes de Siracusa',
+    'Niels Bohr',
+    'Rosalind Franklin',
+    'Lise Meitner',
+    'Claude Shannon',
+    'Gregor Mendel',
+    'Johannes Kepler',
+    'Carl Sagan',
+    'Stephen Hawking'
+]
+
 
 BROKER = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 INFO_FILE = "driver_info.json"
@@ -22,24 +52,34 @@ def load_or_register_driver(producer):
             print(f"[Driver] DRIVER existente: {info['alias']} (ID={info['id']})")
             return info
         
-    alias = random.choice(['Julio César','Alejando Magno','Ada Lovelace','Alan Turing','Juana De Arco'])
-    print(f"[Driver] Registrando a: {alias}")
-    msg = {"action": "REGISTER", "alias": alias}
-    producer.send("Driver.Commands, msg")
-    producer.flush()
-    print(f"[Driver] Enviando registro al central...")
-    return {"alias": alias, "id": None}
+    driver_id = str(uuid.uuid4())[:8]
+    random.seed(driver_id)
+    alias = random.choice(alias_list)
 
-def wait_for_registration_response(consumer):
-    for msg in consumer:
-        data = msg.value
-        if data.get("action") == "REGISTER":
-            driver_id = data.get("id")
-            print(f"[Driver] Registrado con ID: {driver_id}")
+    
+    driver_info = {"alias": alias, "id": driver_id}
+    with open(INFO_FILE, "w") as f:
+        json.dump(driver_info, f)
+    
+    print(f"[Driver] Creado como: {alias} (ID={driver_id})")
+    # msg = {"action": "REGISTER", "alias": alias, "id": driver_id}
+    # producer.send("Driver.Commands", msg)
+    # producer.flush()
+    # print(f"[Driver] Enviando registro a la central...")
 
-            with open(INFO_FILE, "w") as f:
-                json.dump({"alias": data["alias"], "id": driver_id}, f)
-            return driver_id
+    return driver_info
+
+
+# def wait_for_registration_response(consumer):
+#     for msg in consumer:
+#         data = msg.value
+#         if data.get("action") == "REGISTER":
+#             driver_id = data.get("id")
+#             print(f"[Driver] Registrado con ID: {driver_id}")
+# 
+#             with open(INFO_FILE, "w") as f:
+#                 json.dump({"alias": data["alias"], "id": driver_id}, f)
+#             return driver_id
 
 def request_charge(producer, driver_info, cp_id=None):
     msg = {
@@ -102,7 +142,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = """
+HTML_TEMPLATE = HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -110,32 +150,41 @@ HTML_TEMPLATE = """
     <style>
         body { font-family: Arial, sans-serif; margin: 2em; }
         button { margin: 0.5em; padding: 1em; border-radius: 8px; border: none; cursor: pointer; }
-        .info { margin-top: 1em; padding: 1em; border: 1px solid #ccc; border-radius: 8px; }
+        .info { margin-top: 1em; padding: 1em; border: 1px solid #ccc; border-radius: 8px; white-space: pre-line; }
+        .driver-info { background: #f0f0f0; padding: 1em; border-radius: 8px; }
     </style>
 </head>
 <body>
     <h2>EV Charging Driver</h2>
+    <div class="driver-info" id="driverInfo">Cargando información del conductor...</div>
+
     <button onclick="requestCharge()">Solicitar carga aleatoria</button>
     <button onclick="disconnect()">Desconectar</button>
+    
     <div class="info" id="status">Cargando estado...</div>
 
     <script>
     async function updateStatus(){
         const res = await fetch('/status');
         const data = await res.json();
+        document.getElementById('driverInfo').innerText = 
+            "Alias: " + data.alias + "\\nUUID: " + data.driver_id;
         document.getElementById('status').innerText = 
             "Estado: " + data.status + 
             (data.current_cp ? "\\nCP: " + data.current_cp : "") +
             (data.last_ticket ? "\\nTicket: " + JSON.stringify(data.last_ticket) : "");
     }
+
     async function requestCharge(){
         await fetch('/charge', {method: 'POST'});
         updateStatus();
     }
+
     async function disconnect(){
         await fetch('/disconnect', {method: 'POST'});
         updateStatus();
     }
+
     setInterval(updateStatus, 2000);
     updateStatus();
     </script>
@@ -143,26 +192,47 @@ HTML_TEMPLATE = """
 </html>
 """
 
+
 @app.route("/")
 def index():
     return render_template_string(HTML_TEMPLATE)
 
 @app.route("/charge", methods=["POST"])
 def api_charge():
-    request_charge(app.producer)
+    request_charge(app.producer, driver_info)
     return jsonify({"ok": True})
 
 @app.route("/disconnect", methods=["POST"])
 def api_disconnect():
-    disconnect_vehicle(app.producer)
+    disconnect_vehicle(app.producer, driver_info, driver_state["current_cp"])
     return jsonify({"ok": True})
 
 @app.route("/status")
 def api_status():
-    return jsonify(driver_state)
+    return jsonify({
+        "status": driver_state["status"],
+        "current_cp": driver_state["current_cp"],
+        "last_ticket": driver_state["last_ticket"],
+        "driver_id": driver_info.get("id"),
+        "alias": driver_info.get("alias")
+    })
+
+def wait_for_kafka(broker, retries = 15, delay = 3):
+    for attempt in range (1, retries+1):
+        try:
+            test_producer = KafkaProducer(
+                bootstrap_servers=broker,
+                value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            )
+            return True
+        except Exception as e:
+            time.sleep(delay)
+    exit(1)
 
 def main():
     global driver_info
+
+    wait_for_kafka(BROKER)
 
     app.producer = KafkaProducer(
         bootstrap_servers=BROKER,
@@ -177,17 +247,14 @@ def main():
     )
 
     driver_info = load_or_register_driver(app.producer)
-    if not driver_info.get("id"):
-        driver_info["id"] = wait_for_registration_response(consumer)
-
-    PORT = int(os.getenv("FLASK_PORT", "5000"))
-    print(f"[Driver] Interfaz disponible en http://localhost:{PORT}")
-    app.run(host="0.0.0.0", port=PORT, debug=False)
-
     print(f"[Driver] App ready for use || ID:{driver_info['id']} Alias:{driver_info['alias']}")
 
     stop_event = threading.Event()
     threading.Thread(target=listen_to_central, args=(app.producer, consumer, stop_event, driver_info), daemon=True).start()
+
+    PORT = int(os.getenv("FLASK_PORT", "5000"))
+    print(f"[Driver] Interfaz disponible en http://localhost:{PORT}")
+    app.run(host="0.0.0.0", port=PORT, debug=False)
 
 
 if __name__ == "__main__":
