@@ -94,9 +94,30 @@ export const createApp = async ({model}) => {
     })
 
 //--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
-    socket.on("CP_Central_Status_Socket", async (data) => {
+    socket.on(CP_Central_Status_Socket, async (data) => {
+      //--------------------------------- FUNCION QUE ENVIA EL TICKET ---------------------------------
       if(data.isChanged){
+
         console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.Estado}`);
+        
+        const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
+
+        if (changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
+          
+          const cpDB = await axios.get(`${CPsEndPoint}/${activeCP.ID_UUID}`);
+
+          const precio = cpDB.data.Precio_KWH * changedCP.alreadyCharged;
+          
+          const driverPayload = {
+            action: "TICKET",
+            driver_id: data.DriverID,
+            cp_id: data.ID_UUID,
+            price: precio 
+          }
+
+          produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
+        }
+      
       }
     
       let exists = false;
@@ -307,13 +328,22 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
               cp_id: uuid
             }
               
-          */    
+          */ 
+
+          const activeCP = ActiveCPs.find(e => e.ID_UUID === data.cp_id);
+
+          const cpDB = await axios.get(`${CPsEndPoint}/${activeCP.ID_UUID}`);
+
+          const precio = cpDB.data.Precio_KWH * activeCP.alreadyCharged;
+          
+
           const driverPayload = {
             action: "TICKET",
             driver_id: data.driver_id,
-            cp_id: data.driver_id,
-            price: 999 //TODO CALCULAR
+            cp_id: data.cp_id,
+            price: precio 
           }
+
           const CPPayload = {
               target: data.cp_id,
               action: "DRIVER_DISCONNECT",

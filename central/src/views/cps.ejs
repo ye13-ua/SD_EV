@@ -42,6 +42,7 @@
           <p>Id CP: <%= cp.ID_UUID %></p>
           <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
           <p>Precio: <%= cp.Precio_KWH %> KW/h</p>
+          <p id="state"></p>
           
           <button class="startButton">Start</button>
           <button class="stopButton">Stop</button>
@@ -76,7 +77,7 @@
         }
 
       */
-
+      const state = cp.getElementById("state");
       const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
         /*
           Switch de cambio de estado.
@@ -89,24 +90,31 @@
         
         case "DISCONNECTED": // NO ES UN ESTADO REAL
           cp.style.backgroundColor = "darkgray";
+          state.textContent = "Desconectado";
         break;
         
         case "ACTIVE":
           cp.style.backgroundColor = "lightgreen";
+          state.textContent = "Activo y operativo"
         break;
           
         case "CHARGING_CENTRAL":
           cp.style.backgroundColor = "darkgreen";
+          state.textContent = `Vehiculo cargando: ${data.DriverID}`;
         break;
           
         case "WAITING":
           cp.style.backgroundColor = "orange";
+          state.textContent = "Parado"
         break;
         case "BROKEN":
           cp.style.backgroundColor = "red";
+          state.textContent = "Roto";
         break;
         default:
+          //ESTADO POR DEFAULT
           cp.style.backgroundColor = "darkgray";
+          state.textContent = "Desconectado";
         break;
       }
       
