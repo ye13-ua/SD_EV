@@ -14,50 +14,80 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ev_net
-
-  # ----------------------- KAFKA -----------------------
-  
   # ----------------------- CENTRAL -----------------------
   central:
-    build: ./central/backend
-    container_name: ev_central
-    restart: always
-    depends_on:
-      - db
-#      - kafka
+    build: ./central
+    container_name: central
     environment:
-      DB_HOST: db
+      DB_HOST: "db"
       DB_PORT: 5432
-      DB_NAME: evcharging
-      DB_USER: usuario
-      DB_PASSWORD: contraseña
-      KAFKA_BOOTSTRAP: kafka:9092
-      CENTRAL_PORT: 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./central:/app/backend
-    networks:
-      - ev_net
-    command: python EV_Central.py
-
-  # ----------------------- NODE FRONTEND -----------------------
-  front:
-    build: ./central/frontend
-    container_name: ev_frontend
+      DB_NAME: "evcharging"
+      DB_USER: "usuario"
+      DB_PASSWORD: "contraseña"
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      # kafka
+      CENTRAL_DRIVER_COMMANDS: "Central.Driver.Commands"
+      CENTRAL_CP_COMMANDS: "Central.CP.Commands"
+      DRIVER_COMMANDS: "Driver.Commands" 
+      # sockets
+      CP_CENTRAL_STATUS_SOCKET: "CP_Central_Status_Socket"
+      CP_CENTRAL_CREATE_SOCKET: "CP_Central_Create_Socket"
+      VIEW_CENTRAL_CMD_SOCKET: "View_Central_CMD_Socket"
+      # TIMEOUT
+      TIMEOUTMS: 6000
+      
     depends_on:
-      - db
-      - central
+      kafka:
+        condition: service_healthy
+      db: 
+        condition: service_started
     ports:
-      - "3000:3000"
+      - "4000:4000"
     networks:
       - ev_net
     command: npm run start
+
+  # ----------------------- KAFKA -----------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ev_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ev_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ev_kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    ports:
+      - "9092:9092"
+    networks:
+      - ev_net
   # ----------------------- CHARGING POINTS -----------------------
 
   # ----------------------- VOLUMES & NETWORKS -----------------------
 volumes:
   postgres_data:
+  
+  kafka_data:
 
 networks:
   ev_net:

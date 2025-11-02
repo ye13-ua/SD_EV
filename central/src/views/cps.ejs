@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Central Controller</title>
+  <style>
+    *, ::before, ::after {
+      box-sizing: border-box;
+    }
+    body { 
+      font-family: sans-serif;
+      margin: 2rem;
+    }
+    .Cps-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr); /* 5 columnas iguales */
+      gap: 10px; /* separación entre items */
+      padding: 10px;
+    }
+    .Cps {
+      background: orange;
+      background: darkgray;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+
+</head>
+<body>
+  <h1>CPS</h1>
+    
+  <% if (readedCPs.error) { %>
+    <p>Base de datos vacia</p>
+  <% } else { %>
+    <div id = "container" class="Cps-container">
+      <% readedCPs.forEach(cp => { %>
+        <div class="Cps" id = "<%= cp.ID_UUID %>" data-id="<%= cp.ID_UUID %>">
+          <h2><%= cp.Ubicacion %></h2>
+          <p>Id CP: <%= cp.ID_UUID %></p>
+          <p>Ubicacion: <%= cp.UbicacionLarga %> </p>
+          <p>Precio: <%= cp.Precio_KWH %> KW/h</p>
+          <p id="state"></p>
+          
+          <button class="startButton">Start</button>
+          <button class="stopButton">Stop</button>
+          <button class="breakButton">Break</button>
+          <input class="priceInput" type="number" value="<%= cp.Precio_KWH %>">
+          <button class="updateButton">Update Price</button>
+          
+        </div>
+      <% }) %>
+    </div>
+    <div class="Buttons-container">
+      <button id="startAllButton">Start ALL</button>
+      <button id="stopAllButton">Stop ALL</button>
+      <button id="breakAllButton">Break ALL</button>
+    </div>
+    <% } %>
+  <script>
+    const socket = io();
+    const ALLCPS = JSON.parse('<%- JSON.stringify(readedCPs)%>');
+    //--------------------------------- SOCKET CP_Central_Status_Socket ----------------------------------- //TODO DEBUG = FALSE
+    socket.on("CP_Central_Status_Socket", (data) => {      
+
+      /*
+        data = {
+          ID_UUID: UUID,
+          Estado: STATE,
+          isChanged: Boolean,
+          Timestamp: String,
+          KafkaOk: Boolean,
+          alreadyCharged: float,
+          DriverID:
+        }
+
+      */
+      const state = cp.getElementById("state");
+      const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
+        /*
+          Switch de cambio de estado.
+          ¿Porque no mira isChanged antes de aplicar los cambios?
+          Porque si tu recargas la pagina todos los estados se ponen en gris, y solo cambian de estado en caso de llege ese parametro del CP (Que solo llega si cambia de estado ofc)
+
+          Asumo que CP enviaran su estado cada x segundos, en ese caso tu recargas la pagina y todo se pone en desconectado, luego se conectan los sockets de CP y envian datos, tras esto ya se adopta el color correcto
+        */
+      switch(data.Estado) {
+        
+        case "DISCONNECTED": // NO ES UN ESTADO REAL
+          cp.style.backgroundColor = "darkgray";
+          state.textContent = "Desconectado";
+        break;
+        
+        case "ACTIVE":
+          cp.style.backgroundColor = "lightgreen";
+          state.textContent = "Activo y operativo"
+        break;
+          
+        case "CHARGING_CENTRAL":
+          cp.style.backgroundColor = "darkgreen";
+          state.textContent = `Vehiculo cargando: ${data.DriverID}`;
+        break;
+          
+        case "WAITING":
+          cp.style.backgroundColor = "orange";
+          state.textContent = "Parado"
+        break;
+        case "BROKEN":
+          cp.style.backgroundColor = "red";
+          state.textContent = "Roto";
+        break;
+        default:
+          //ESTADO POR DEFAULT
+          cp.style.backgroundColor = "darkgray";
+          state.textContent = "Desconectado";
+        break;
+      }
+      
+    })
+
+   
+    //--------------------------------- BUTTON START ALL ----------------------------------- //TODO DEBUG = FALSE
+    const startAllButton = document.getElementById("startAllButton");
+      startAllButton.addEventListener("click", () => {
+        const data = {
+          action: "START",
+          target: "ALL",
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+      })
+    //--------------------------------- BUTTON STOP ALL ----------------------------------- //TODO DEBUG = FALSE      
+    const stopAllButton = document.getElementById("stopAllButton");
+    stopAllButton.addEventListener("click", () => {
+      const data = {
+        action: "STOP",
+        target: "ALL",
+      }
+      socket.emit("View_Central_CMD_Socket", data)
+    })
+    //--------------------------------- BUTTON BREAK ALL ----------------------------------- //TODO DEBUG = FALSE
+    const breakAllButton = document.getElementById("breakAllButton");
+    breakAllButton.addEventListener("click", () => {
+      const data = {
+        action: "STOP",
+        target: "ALL",
+      }
+      console.log("BREAK ALL EVENT");
+      socket.emit("View_Central_CMD_Socket", data)
+    })
+    
+    
+//--------------------------------- Botones individuales ----------------------------------- //TODO DEBUG = FALSE
+    allcps = document.querySelectorAll(".Cps");
+    
+    allcps.forEach(item => {
+      const id = item.dataset.id;
+    //--------------------------------- BUTTON START ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".startButton").addEventListener("click", () => {
+        
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "START",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+
+      })
+    //--------------------------------- BUTTON STOP ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".stopButton").addEventListener("click", () => {
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "STOP",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    //--------------------------------- BUTTON BREAK ----------------------------------- //TODO DEBUG = FALSE
+      item.querySelector(".breakButton").addEventListener("click", () => {
+        
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "BREAK",
+          target: affectedCP.ID_UUID,
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    //--------------------------------- BUTTON UPDATE ----------------------------------- //TODO DEBUG = FALSE
+      
+
+      item.querySelector(".updateButton").addEventListener("click", () => {
+        
+        newPrice = item.querySelector(".priceInput").value;
+
+        const affectedCP = ALLCPS.find(e => e.ID_UUID === id);
+
+        const data = {
+          action: "UPDATE_PRICE",
+          target: affectedCP.ID_UUID,
+          price: parseFloat(newPrice)
+        }
+
+        socket.emit("View_Central_CMD_Socket", data)
+        
+      })
+    })
+
+  </script>
+</body>
+</html>
