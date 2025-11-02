@@ -11,6 +11,8 @@ export const createCPRouter = ({CPModel}) => {
 
     CPRouter.get("/:id",Cpcontroller.Read);
 
+    CPRouter.patch("/:id",Cpcontroller.Update);
+
     CPRouter.post("/", Cpcontroller.Create);
 
     return CPRouter;
