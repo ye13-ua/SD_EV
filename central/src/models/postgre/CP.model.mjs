@@ -42,6 +42,22 @@ export class CPModel {
             return
         }
     }
+    //TODO Probar
+    static async Read({id}) {
+        try{
+            const readedCP = await CP.findByPk(id);
+            if(readedCP) {
+                const CpsJSON = readedCP.toJSON();
+                return CpsJSON
+            } else {
+                return {error: "Valor no encontrado"};
+            }
+            
+        } catch(err){
+            console.log("Error al leer todo",err); //TODO eliminar
+            return
+        }
+    }
     static async Create({body}) {
         try {
             const validCP = validateParcialCP(body);

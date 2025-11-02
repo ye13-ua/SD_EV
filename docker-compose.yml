@@ -33,6 +33,8 @@ services:
       CP_CENTRAL_STATUS_SOCKET: "CP_Central_Status_Socket"
       CP_CENTRAL_CREATE_SOCKET: "CP_Central_Create_Socket"
       VIEW_CENTRAL_CMD_SOCKET: "View_Central_CMD_Socket"
+      # TIMEOUT
+      TIMEOUTMS: 6000
       
     depends_on:
       kafka:

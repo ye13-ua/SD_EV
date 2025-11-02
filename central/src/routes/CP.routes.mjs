@@ -7,6 +7,10 @@ export const createCPRouter = ({CPModel}) => {
 
     CPRouter.get("/",Cpcontroller.ReadAll);
 
+    CPRouter.get("/JSON",Cpcontroller.ReadAllJSON);
+
+    CPRouter.get("/:id",Cpcontroller.Read);
+
     CPRouter.post("/", Cpcontroller.Create);
 
     return CPRouter;

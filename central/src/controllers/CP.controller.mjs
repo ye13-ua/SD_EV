@@ -16,6 +16,26 @@ export class CPController {
         }        
     }
 
+    ReadAllJSON = async (req, res) => {
+        const readedCPs = await this.CPModel.ReadAll();
+        //TODO Renderizar los CPs
+        if(!readedCPs) {
+            return res.status(400).json({error: "Error al leer CP"})
+        } else {
+            res.status(200).json(readedCPs)
+        }        
+    }
+
+    Read = async (req, res) => {
+        const readedCP = await this.CPModel.Read({id: req.params.id});
+        
+        if(!readedCP) {
+            return res.status(400).json({error: "Error al leer CP"})
+        } else {
+            res.status(200).json(readedCP)
+        }        
+    }
+
     Create = async (req, res) => {
         const newCP = await this.CPModel.Create({body: req.body});
 

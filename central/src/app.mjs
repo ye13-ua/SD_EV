@@ -1,11 +1,13 @@
 
 //servidor http
-import express from "express";
+import express, { response } from "express";
 import { createCPRouter } from "./routes/CP.routes.mjs";
 import { postgreModel } from "./models/postgre/postgre.mjs";
 import { sequelize } from "./db/connection.mjs";
 //Para hacer post
 import axios from "axios"
+//tracker
+import { tracker } from "./utils/activityTracker.mjs";
 
 //kafka
 import { consumeMessage, produceMessage, ensureTopic, kafkaEmitter, kafkaEvent } from "./controllers/kafka.controller.mjs"
@@ -18,7 +20,7 @@ dotenv.config()
 import {Server} from "socket.io"
 import { createServer } from "node:http";
 
-
+let ActiveCPs = [];
 
 export const createApp = async ({model}) => {
   
@@ -80,7 +82,7 @@ export const createApp = async ({model}) => {
         const response = await axios.post(CPsEndPoint, data);
         if(!response.data.error) {
           console.log("CP Creado ->",response.data.ID_UUID);
-
+          
           //AQUI SE DEBERIA DE ENVIAR UN STATUS CREATED
 
         } else {
@@ -92,9 +94,32 @@ export const createApp = async ({model}) => {
     })
 
     //CP de estado para poner los cambios en la consola, isChanged sirve para que no imprima el cambio de estado cada vez que lleguen datos por este socket
-    socket.on(CP_Central_Status_Socket, (data) => {
+    socket.on(CP_Central_Status_Socket, async (data) => {
       if(data.isChanged){
-        console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.ID_UUID}`);
+        console.log(`CP ${data.ID_UUID} cambio de estado a -> ${data.Estado}`);
+      }
+    
+      let exists = false;
+      
+     //ACTUALIZA EL ESTADO DE LOS ACTIVECPS en RAM
+      ActiveCPs.forEach(e => {
+        if(e.ID_UUID === data.ID_UUID){
+          e.Estado = data.Estado
+          e.Timestamp = data.Timestamp
+          exists = true
+          //ACTUALIZA LOS IDS ACTIVOS
+          tracker.update(data.ID_UUID);
+        }
+      })
+
+      //AGREGA A ACTIVE CP
+      if(!exists) {
+        readed = await axios.get(`${CPsEndPoint}:${data.ID_UUID}`);
+        const cp = readed.data;
+        ActiveCPs.push({...cp, Estado: data.Estado});
+        
+        //ACTUALIZA LOS IDS ACTIVOS
+        tracker.update(data.ID_UUID);
       }
     })
 
@@ -130,11 +155,11 @@ export const createApp = async ({model}) => {
 
  //--------------------------------- KAFKA ---------------------------------
 
-const {CENTRAL_DRIVER_COMMAND, CENTRAL_CP_COMMANDS, DRIVER_COMMANDS} = process.env;
+const {CENTRAL_DRIVER_COMMANDS, CENTRAL_CP_COMMANDS, DRIVER_COMMANDS} = process.env;
 
 async function runKafka() {
 
-  await ensureTopic(CENTRAL_DRIVER_COMMAND)
+  await ensureTopic(CENTRAL_DRIVER_COMMANDS)
   await ensureTopic(CENTRAL_CP_COMMANDS)
   await ensureTopic(DRIVER_COMMANDS)
   
@@ -147,25 +172,133 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
   switch (topic) {
     case DRIVER_COMMANDS:
       switch (data.action){
+//--------------------------------- CASE READALL ------------------------------------ DEBUG = FALSE
         case "READALL":
-          CPs = await axios.get(CPsEndPoint);
+
+          //AQUI MIRA Y ACTUALIZA TODOS LOS CPS ACTICOS
+          const ActiveCPs = ActiveCPs.filter(e => tracker.isActive(e.ID_UUID));
 
           data = {
             action: "READALL_RESPONSE",
             driver_id: data.driver_id,
-            cps: CPs
+            cps: ActiveCPs
           }
           //ENVIAR DE VUELTA TODOS LOS CPS
-          produceMessage(CENTRAL_DRIVER_COMMAND, data);
-          
+          produceMessage(CENTRAL_DRIVER_COMMANDS, data);
+
         break;
-        case "CONNECT_CP":
+//--------------------------------- CASE CONNECTCP ---------------------------------- DEBUG = FALSE
+        case "CONNECTCP":
+          // TODO VERIFICAR QUE LA VALIDACION NO SE HACE DESDE CENTRAL DE FORMA MANULA SINO QUE AQUI
+          // TODO LOGS
+          // TODO MOSTRAR CONEXION DE DRIVER CON CP EN FRONT
+
           // PEDIR CONFIRMACIÓN A CP PARA LA CONEXION VIENDO EL ESTADO POR SOCKETS
           // DENEGAR O ACEPTAR POR CENTRAL.DRIVER.COMMANDS
+
+          const driverId = data.driver_id;
+
+          const driverResponse = {
+            action: "CONNECT_CP_RESPONSE",
+            driver_id: data.driver_id,
+            isValidated: false,
+            cp_id: null,
+          }
+
+          const centralLogs = {
+            action: "CONNECTION_LOGS",
+            driver_id: data.driver_id,
+            logs: ""
+          }
+
+          if(data.cp_id){ // TIENE CP_ID
+            
+            driverResponse.cp_id = data.cp_id;
+
+            //------LOGS------
+            centralLogs.logs = `[DRIVER ${driverId}] intentado conectarse al [CP ${driverResponse.cp_id}]`;
+            console.log(centralLogs.logs);
+            produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+
+            if(tracker.isActive(driverResponse.cp_id)){ //ESE CP_ID ES ACTIVO
+              driverResponse.isValidated = true;
+              
+              //------LOGS------
+              centralLogs.logs = `[DRIVER ${driverId}] LA CONEXION CON [CP ${driverResponse.cp_id}] fue VALIDA`;
+              console.log(centralLogs.logs);
+              produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+            
+            } else { //ESE CP_ID NO ES ACTIVO
+              
+              //------LOGS------
+              centralLogs.logs = `[DRIVER ${driverId}] LA CONEXION CON [CP ${driverResponse.cp_id}] NO fue VALIDA`;
+              console.log(centralLogs.logs);
+              produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+            }
+            
+          } else { //NO TIENE CP_ID
+            
+            //------LOGS------
+            centralLogs.logs = `[DRIVER ${driverId}] intentado conectarse a un CP RANDOM`;
+            console.log(centralLogs.logs);
+            produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+
+            const active = ActiveCPs.find(e => e.Estado === "ACTIVE");
+            if(active){
+              driverResponse.cp_id = active.ID_UUID;
+              driverResponse.isValidated = true;
+              
+              //------LOGS------
+              centralLogs.logs = `[DRIVER ${driverId}] LA CONEXION CON [CP ${driverResponse.cp_id}] fue VALIDA`;
+              console.log(centralLogs.logs);
+              produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+
+            } else {
+              
+              //------LOGS------
+              centralLogs.logs =  `[DRIVER ${driverId}] NO SE ENCONTRO CPS ACTIVOS`;
+              console.log(centralLogs.logs);
+              produceMessage(CENTRAL_DRIVER_COMMANDS, centralLogs);
+
+            }
+          }
+        
+          if(driverResponse.isValidated){ // SI SE VALIDA LA CONEXION
+            const CPPayload = {
+              target: driverResponse.cp_id,
+              action: "CHARGE",
+              driver_id: driverResponse.driver_id,
+              target_charge: data.charge
+            }
+            produceMessage(CENTRAL_CP_COMMANDS, CPPayload) // ENVIA LOS DATOS A CP PARA EL FUNCIONAMIENTO ADECUADO
+          }
+
+          produceMessage(CENTRAL_DRIVER_COMMANDS, driverResponse);
         break;
+//--------------------------------- CASE DISCONNECT --------------------------------- DEBUG = FALSE
         case "DISCONNECT":
           // CENTRAL.CP.COMMANDS -> action = DRIVER_DISCONNECT
           // CENTRAL.DRIVER.COMMANDS -> action = ticket
+          /*
+            data = {
+              driver_id: ID
+              cp_id: uuid
+            }
+              
+          */    
+          const driverPayload = {
+            action: "TICKET",
+            driver_id: data.driver_id,
+            cp_id: data.driver_id,
+            price: 999 //TODO CALCULAR
+          }
+          const CPPayload = {
+              target: data.cp_id,
+              action: "DRIVER_DISCONNECT",
+              driver_id: data.driver_id
+          }
+          produceMessage(CENTRAL_CP_COMMANDS, CPPayload)
+          produceMessage(CENTRAL_DRIVER_COMMANDS, driverPayload);
         break;
       }
         
@@ -178,4 +311,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 
 runKafka().catch(console.error)
 
-createApp({model: postgreModel})
+await createApp({model: postgreModel})
+
+agregarCPs();
+
