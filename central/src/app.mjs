@@ -102,9 +102,9 @@ export const createApp = async ({model}) => {
         
         const changedCP = ActiveCPs.find(e => e.ID_UUID === data.ID_UUID)
 
-        if (changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
+        if (changedCP.Estado && changedCP.Estado === "CHARGING_CENTRAL" && data.Estado === "ACTIVE") {
           
-          const cpDB = await axios.get(`${CPsEndPoint}/${activeCP.ID_UUID}`);
+          const cpDB = await axios.get(`${CPsEndPoint}/${ActiveCPs.ID_UUID}`);
 
           const precio = cpDB.data.Precio_KWH * changedCP.alreadyCharged;
           
@@ -232,7 +232,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
         break;
 //--------------------------------- CASE CONNECTCP ---------------------------------- //TODO DEBUG = FALSE
         case "CONNECTCP":
-          
+
           // PEDIR CONFIRMACIÓN A CP PARA LA CONEXION VIENDO EL ESTADO POR SOCKETS
           // DENEGAR O ACEPTAR POR CENTRAL.DRIVER.COMMANDS
 
