@@ -9,7 +9,7 @@ import threading
 import time
 import uuid
 
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 
 alias_list = [
     'Julio César',
@@ -218,9 +218,38 @@ TEMPLATE = """
       {% endfor %}
     {% endif %}
     <hr>
-    <button style="background:#007bff;color:white;" onclick="fetch('/charge',{method:'POST'}).then(()=>location.reload())">Solicitar carga</button>
-    <button style="background:#dc3545;color:white;" onclick="fetch('/disconnect',{method:'POST'}).then(()=>location.reload())">Desconectar</button>
-    <button style="background:#28a745;color:white;" onclick="fetch('/readall',{method:'POST'}).then(()=>location.reload())">Actualizar CPs</button>
+    <b>Solicitar carga:</b><br>
+    <button style="background:#007bff;color:white; margin-top:5px;" 
+            onclick="fetch('/charge',{method:'POST'}).then(()=>location.reload())">
+    Solicitar carga aleatoria
+    </button>
+    <b>Solicitar carga manual:</b><br>
+    <input id="uuidBox" type="text" placeholder="Pega UUID del CP..." 
+        style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; margin-top:5px;">
+    <button style="background:#007bff;color:white; margin-top:5px;" 
+            onclick="sendCharge()">Solicitar carga en UUID</button>
+    <hr>
+    <button style="background:#28a745;color:white;" onclick="fetch('/readall',{method:'POST'}).then(()=>location.reload())">
+    Actualizar CPs
+    </button>
+    <button style="background:#dc3545;color:white;" onclick="fetch('/disconnect',{method:'POST'}).then(()=>location.reload())">
+    Desconectar
+    </button>
+
+    <script>
+    function sendCharge() {
+    const cpId = document.getElementById('uuidBox').value.trim();
+    if (!cpId) {
+        alert("Introduce una UUID válida.");
+        return;
+    }
+    fetch('/charge', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ cp_id: cpId })
+    }).then(()=>location.reload());
+    }
+</script>
   </div>
 </body>
 </html>
@@ -243,8 +272,10 @@ def index():
 
 @app.route("/charge", methods=["POST"])
 def api_charge():
-    request_charge(app.producer, driver_info)
-    return jsonify({"ok": True})
+    data = request.get_json(force=True, silent=True) or {}
+    cp_id = data.get("cp_id")
+    request_charge(app.producer, driver_info, cp_id)
+    return jsonify({"ok": True, "cp_id": cp_id})
 
 @app.route("/disconnect", methods=["POST"])
 def api_disconnect():

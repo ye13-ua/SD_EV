@@ -155,12 +155,10 @@ def handle_engine():
             kafka_ok = reply.get("kafka_ok",True)
             car_status = reply.get("car_connected",False)
             driver_id = reply.get("driver_id",None)
-
-            
     
-        CP_DEFAULT_PRICE = reply.get("price_kwh")
-        last_ping = time.strftime("%H:%M:%S")
-        engine_status = status
+            CP_DEFAULT_PRICE = reply.get("price_kwh")
+            last_ping = time.strftime("%H:%M:%S")
+            engine_status = status
 
         current_report = (status, kafka_ok)
 
