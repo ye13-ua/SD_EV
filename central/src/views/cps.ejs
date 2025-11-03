@@ -80,7 +80,8 @@
       console.log(data);
       const cp = document.getElementById(data.ID_UUID); // Pilla el id del div
 
-      //const state = cp.getElementById("state");
+      const state = cp.querySelector("#state");
+      const carga = cp.querySelector("#alreadyCharged");
         /*
           Switch de cambio de estado.
           ¿Porque no mira isChanged antes de aplicar los cambios?
@@ -90,33 +91,39 @@
         */
       switch(data.Estado) {
         
-        case "OUT_OF_SERVICE": // NO ES UN ESTADO REAL
+        case "OUT_OF_SERVICE": 
           cp.style.backgroundColor = "orange";
-          //state.textContent = "Desconectado";
+          state.textContent = "Esperando";
+          carga.textContent = "";
         break;
         
         case "ACTIVE":
           cp.style.backgroundColor = "lightgreen";
-          //state.textContent = "Activo y operativo"
+          state.textContent = "Activo y operativo"
+          carga.textContent = "";
         break;
           
         case "CHARGING_CENTRAL":
           cp.style.backgroundColor = "darkgreen";
-          //state.textContent = `Vehiculo cargando: ${data.DriverID}`;
+          state.textContent = `Vehiculo cargando: ${data.DriverID}`;
+          carga.textContent = `Cargado: ${data.alreadyCharged} KW`;
         break;
           
         case "WAITING":
           cp.style.backgroundColor = "orange";
-          //state.textContent = "Parado"
+          state.textContent = "Esperando"
+          carga.textContent = "";
         break;
         case "BROKEN":
           cp.style.backgroundColor = "red";
-          //state.textContent = "Roto";
+          state.textContent = "Roto";
+          carga.textContent = "";
         break;
         default:
           //ESTADO POR DEFAULT
           cp.style.backgroundColor = "darkgray";
-          //state.textContent = "Desconectado";
+          state.textContent = "Desconectado";
+          carga.textContent = "";
         break;
       }
       

@@ -30,7 +30,7 @@ export const createApp = async ({model}) => {
   
   //Borra la base de datos al iniciar la app: DEBUG
   await sequelize.sync(  
-    //{force: true} 
+    {force: true} 
   ); //TODO Quitar force 
 
   //Puerto que se saca de 
@@ -303,7 +303,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 
             
             const waitingORActiveCPs = ActiveCPs.filter(e => e.Estado === "ACTIVE" || e.Estado === "WAITING");
-            const active = waitingORActiveCPs[Math.floor(Math.random() * valores.length)]
+            const active = waitingORActiveCPs[Math.floor(Math.random() * waitingORActiveCPs.length)]
 
             if(active){
               driverResponse.cp_id = active.ID_UUID;
