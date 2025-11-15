@@ -105,6 +105,7 @@ Lo que pide la practica:
         - Con este formato:
           - {ciudad, ciudad, ciudad...}
       - ❌ WCO actualizara el banco de datos cada vez que reciba los datos
+      - ❌ Tambien actualizara el banco de datos cada vez que inicie WCO
       - ❌ WCO cada 4 segundos realizara una peticion a https://openweathermap.org/ usando su API:
         - ![alt text](/readme/apiConsulta.png)
         - Este es el formato de la consulta a realizar
@@ -127,6 +128,7 @@ Se necesita manejar y guardar la siguiente información para el correcto funcion
 - Auditoria (Para el historial de comandos que se han ejecutado)
 
 Datos:
+//TODO terminar de rellenar los datos de CP
 - CP:
   - **ID**: UUID -> PK
   - _Credential_: String (hashed and salted UUID + systemTime()) -> Unique - NULL
@@ -144,12 +146,14 @@ Datos:
 ## EV Registry - NO DOCUMENTADO / SIN DIAGRAMA
 
 Endpoints:
-- https://Ev_registry.es/api/cps
+- https://EV_registry.es/api/cps
   - Registro de CPS
   - Permite -> (POST, GET)
-- https://Ev_registry.es/api/cps/:id
+- https://EV_registry.es/api/cps/:id
   - Trabajo con CPS via su id
-  - Permite -> (POST, GET, DELETE, UPDATE) 
+  - Permite -> (GET, DELETE, UPDATE)
+- https://EV_registry.es/api/cps/auth/:id
+  - Permite -> (POST)
 
 ## Frontend
 
@@ -158,7 +162,7 @@ Aparte necesitare una forma de registrarse con una cuenta de administrador
 - Este módulo consistirá en una simple página web que, haciendo peticiones al API_Central, muestre el cuadro de monitorización de la central con todos sus elementos.
 - Como se ha comentado anteriormente, este interfaz front deberá contener todos los elementos necesarios para visualizar claramente el estado de situación de todos los elementos del sistema: CPs (incluyendo su estado de registro, activación y token), Drivers, mensajes de error de cualquier parte del sistema, mensajes de estado del EV_W, clima, alertas ante cualquier fallo de cualquier módulo del sistema, etc.
 
-Endpoint: http://Ev_central.es/
+Endpoint: http://EV_central.es/
 
 ## CP
 
@@ -187,33 +191,80 @@ Se usara Bearer token
 
 ## Funcionalidades
 
+### Payloads
+#### EV_Registry
+```json
+//POST https://EV_registry.es/api/cps
+  {
+    /*TODO Datos del CP*/
+    ID,
+    Credential,
+    ...
+  }
+//POST https://EV_registry
+```
+
+
+
 ### EV_CENTRAL
 
 ### EV_Registry
 
-1. Registro de CP (En el caso de crear un nuevo CP)
-   1. Via ```POST https://Ev_registry.es/api/cps``` se le enviaran todos los datos del nuevo CP menos Credential
+1. Registro de CP -> ```POST https://EV_registry.es/api/cps``` (En el caso de crear un nuevo CP)
+   1. Via ```POST https://EV_registry.es/api/cps``` se le enviaran todos los datos del nuevo CP menos Credential
    ```json 
-   payload: {CMD: /*TODO Create new CP */, Data: {...}} 
+   req = 
+   {
+    /*TODO Datos del CP*/
+    ID,
+    Credential,
+    ...
+   } 
    ```
-      1. En el caso de que se envie a ```https://Ev_registry.es/api/cps``` sacara el id del payload (osea en js seria ```req.Data```)
-   2. Estos datos seran recibidos en el controlador Create ```CPController.create(req, res)``` de los cps de EV_Registry
+      1. En el caso de que se envie a ```https://EV_registry.es/api/cps``` sacara el id del payload (osea en js seria ```req.Data```)
+   1. Estos datos seran recibidos en el controlador Create ```CPController.create(req, res)``` de los cps de EV_Registry
       1. Este modulo realizara la verificación de que los datos que han llegado son los correctos usando [ZOD](https://zod.dev/basics) y el esquema de un CP
       2. Si no son correctos enviara de vuelta un status ```400``` con un payload de ```{ErrCode: //TODO Error de creación, Description: "En que parte esta el error, la primera que pille"``` (Para esto referirse a [ZOD customización de errores](https://zod.dev/error-customization)) y enviara los mismos datos a ```POST https://EV_central.es/api/audit```
       ``` json
-      {
+      req = {
         Ip: req.ip
         ErrCode: //TODO Error de creación
         Description: string
       }
       ```
       ***Data sera puesto por el controlador/modulo de audit de ev_central**
-   3. Si los datos son correctos enviaran al modulo via 
+   2. Si los datos son correctos enviaran al modulo via 
    ```javascript 
-   CPModule.Create({body: chekedCP /*{ID: UUID, ...}*/ })
+   CPModule.Create({cp: chekedCP /*{ID: UUID, ...}*/ })
    ```
-   4. Dentro del modulo se creara _Credential_
-      1. //TODO Parte de Hashing y Salting
+   3. Se creara el CP en la base de datos
+   4. Luego viene la parte de autentificación y creación de _Credentials_
+      1. //TODO Parte de Hashing y Salting y Credentials
+   5. Se devolvera el CP creado con _Credential_
+2. Autentificación del CP -> ```POST https://EV_registry.es/api/cps/auth:id``` (En el caso de que ya exista en la base de datos y se necesite actualizar _Credentials_)
+   1. Via ```POST https://EV_registry.es/api/cps/auth/:id``` se le solicitara la actualización de credenciales
+   2. El controlador se encargara de ver si ese CP existe haciendo un ```GET https://EV_registry.es/api/cps/:id```
+      1. En caso de que no exista en la base de datos le enviara como respuesta con codigo ```400``` los siguientes datos
+      ```javascript
+      res = {
+        ErrCode: //TODO Error de autentificación porque no existe en la base de datos
+        Description: `CP ${req.params.id} no existe en la base de datos`
+      }
+      ```
+      ```javascript
+      //Post https://EV_central.es/api/audit
+      payload = {
+        Ip: req.ip
+        ErrCode: //TODO Error de autentificación porque no existe en la base de datos
+        Description: `CP ${req.params.id} no existe en la base de datos`
+      }
+      ```
+      ***Data sera puesto por el controlador/modulo de audit de ev_central**
+   3. Si existe entonces
+3. Obtener solo un CP -> ```GET https://EV_registry.es/api/cps/:id```
+4. Modificación del CP -> ```UPDATE https://EV_registry.es/api/cps/:id```
+5. Eliminación del CP -> ```DELETE https://EV_registry.es/api/cps/:id```
+6. Obtener todos los CP -> ```GET https://EV_registry.es/api/cps/```
 
 
 ### EV_CENTRAL
