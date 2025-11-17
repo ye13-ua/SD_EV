@@ -118,6 +118,8 @@ Lo que pide la practica:
 
 ## Base de datos - DOCUMENTADO / DIAGRAMA
 
+![alt text](readme/DBDiagram.png)
+
 Datos:
 
 - CP:
