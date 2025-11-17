@@ -130,18 +130,32 @@ Se necesita manejar y guardar la siguiente información para el correcto funcion
 Datos:
 //TODO terminar de rellenar los datos de CP
 - CP:
+  - **ID**: UUID -> PK  
+  - Ciudad: String
+  - Calle: String
+  - Precio_KWH: Float
+
+- Credential:
+  - **CP_ID**: UUID -> PK
+  - Token: string(hashed token)
+  - IsValid: boolean
+  - ExpiresAt: Datetime
+
+- Driver:
   - **ID**: UUID -> PK
-  - _Credential_: String (hashed and salted UUID + systemTime()) -> Unique - NULL
-  - 
-  - Ciudad:
-  - Calle: 
-  - Precio: 
+
+- Ticket:
+  - **CP_ID**: UUID -> PK / FK(CP - ID)
+  - **DR_ID**: UUID -> PK / FK(Driver - ID)
+  - Price: Float
 
 - Auditoria:
   - **Ip**: String -> PK
-  - **Data**: Fecha, hora, minuto y seg del evento -> PK
+  - **Date**: Datetime -> PK
   - ErrCode: int
   - Description: string
+
+
 
 ## EV Registry - NO DOCUMENTADO / SIN DIAGRAMA
 
