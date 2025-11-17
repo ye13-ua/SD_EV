@@ -24,7 +24,7 @@ Especificación de endpoints:
   - https://EV_central.es/api/
     - No permite nada                   
     - https://EV_central.es/api/cps/
-      - Este endpoint permtie guardar cps o leerlos todos
+      - Este endpoint permite guardar cps o leerlos todos
       - PERMITE -> (GET)
       - Post para guardar un endpoint
       - get para leerlos todos
@@ -32,8 +32,10 @@ Especificación de endpoints:
         - X              
       - https://EV_central.es/api/cps/:id
         - Este endpoint permite trabajar con un cp especifico via su id
-        - PEMITE -> (GET)    
+        - PEMITE -> (GET, POST)    
         - Payload (GET):
+          - X
+        - Payload (POST):
           - X
       - https://EV_central.es/api/cps/:city
         - Este endpoint permite recibir todos los CPS de una ciudad especifica
@@ -207,7 +209,7 @@ Se usara https
 
 Se usara Bearer token
 
-## Funcionalidades
+## Casos de uso
 
 ### Payloads
 #### EV_Registry
@@ -224,9 +226,24 @@ Se usara Bearer token
 
 
 
-### EV_CENTRAL
+### EV_CENTRAL 
+#### CPs
+1. Conseguir todos los CPS
+2. Enviar estado de un CP
+3. Parar 1 CP
+4. Parar ALL CPS
+5. Romper 1 CP
+6. Romper ALL CPS
+7. Start 1 CP
+8. Start ALL CPS
+9. Modificar Precio 1 CP
+---
+10. Modificar Localización 1 CP
 
-### EV_Registry
+#### Tickets
+
+
+### EV_Registry 
 
 1. Registro de CP -> ```POST https://EV_registry.es/api/cps``` (En el caso de crear un nuevo CP)
    1. Via ```POST https://EV_registry.es/api/cps``` se le enviaran todos los datos del nuevo CP menos Credential
