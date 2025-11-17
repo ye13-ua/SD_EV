@@ -116,19 +116,10 @@ Lo que pide la practica:
         - En el caso de que la temperatura sea negativa, enviara al endpoint de alertas (http://EV_central.es/api/alerts/:city), una alerta.
 - **Dato 2 ❌**: Implementación de la autenticación entre EV_Central y los CP: Como se ha comentado anteriormente, para poder realizar la autenticación, los CPs previamente se deberán de haber registrado en el EV_Registry. Tras el proceso de registro los CPs estarán disponibles para su uso. Para ello deberán autenticarse en EV_Central con las credenciales que EV_Registry habrá proporcionado a tal propósito. En el momento de la autenticación, si esta se resuelve con éxito, la central devolverá a EV_M, la clave (de cifrado simétrico ÚNICA POR CP) que deberá ser usada por este para el cifrado de todos los mensajes que envíe a la Central. La central descifrará los mensajes teniendo en cuenta dicha clave. Estas claves podrán ser revocadas por EV_Central ante una supuesta vulnerabilidad de la seguridad. Para simular este efecto, en EV_Central, se implementará una opción para restaurar claves. Al pulsarla, se borrarán las claves de un CP específico el cual quedará fuera de servicio. Esto obligará a EV_CP_M a realizar una nueva autenticación mediante una opción incorporada en el mismo y, de esta manera, obtener sus nuevas claves de cifrado. Opcional: Tal y como se refleja en el diagrama de arquitectura conceptual, la autenticación seguirá siendo por sockets pero el alumno que lo desee podrá implementar un API Rest entre CP y Central a tal propósito lo que, en la práctica profesional sería más correcto. En este caso Central expondría un API de Autenticación que el CP consumiría.
 
-
-
-## Base de datos - NO DOCUMENTADO / SIN DIAGRAMA
-
-Se necesita manejar y guardar la siguiente información para el correcto funcionamiento del sistema:
-- CP
-- Conductor
-- Ticket
-- Alerta (Fecha inicio y fin de la alerta)
-- Auditoria (Para el historial de comandos que se han ejecutado)
+## Base de datos - DOCUMENTADO / DIAGRAMA
 
 Datos:
-//TODO terminar de rellenar los datos de CP
+
 - CP:
   - **ID**: UUID -> PK  
   - Ciudad: String
@@ -137,25 +128,36 @@ Datos:
 
 - Credential:
   - **CP_ID**: UUID -> PK
-  - Token: string(hashed token)
-  - IsValid: boolean
+  - **Jti**: string -> PK
   - ExpiresAt: Datetime
+  - IsValid: boolean
 
+```json
+{
+  "sub": 123,
+  "jti": "aa4f3d2e-8211-4fa6-9d70",
+  "exp": 1712440000
+}
+```
 - Driver:
   - **ID**: UUID -> PK
 
 - Ticket:
-  - **CP_ID**: UUID -> PK / FK(CP - ID)
-  - **DR_ID**: UUID -> PK / FK(Driver - ID)
+  - **ID**: UUID -> PK
+  - *CP_ID*: UUID -> FK(CP(ID))
+  - *Driver_ID*: UUID -> FK(Driver(ID))
   - Price: Float
 
-- Auditoria:
+- Log:
   - **Ip**: String -> PK
   - **Date**: Datetime -> PK
-  - ErrCode: int
+  - Code: Int -> FK(Code(ID))
   - Description: string
 
-
+- Code:
+  - **ID**: Int -> PK
+  - Name: String
+  - Description: String
 
 ## EV Registry - NO DOCUMENTADO / SIN DIAGRAMA
 
