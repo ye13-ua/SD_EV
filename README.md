@@ -301,7 +301,8 @@ Se usara Bearer token
    1. CP envia su estado a ```POST https://EV_central/api/cps/:id```
    ```json
    {
-    "Estado": "State",
+    "Estado": "ESTADOS",
+    "EstadoIsChanged": "boolean",
    }
    ```
 3. Parar 1 CP ->    ```POST https://EV_central/api/cps/stop/:id```
