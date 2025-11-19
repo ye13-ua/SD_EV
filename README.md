@@ -37,6 +37,24 @@ Especificación de endpoints:
           - X
         - Payload (POST):
           - X
+      - https://EV_central.es/api/cps/stop/:id
+        - Payload (POST):
+          - X
+      - https://EV_central.es/api/cps/stop/
+        - Payload (POST):
+          - X
+      - https://EV_central.es/api/cps/break/:id
+        - Payload (POST):
+          - X
+        https://EV_central.es/api/cps/break/
+        - Payload (POST):
+          - X
+      - https://EV_central.es/api/cps/start/:id
+        - Payload (POST):
+          - X           
+      - https://EV_central.es/api/cps/start/
+        - Payload (POST):
+          - X
       - https://EV_central.es/api/cps/:city
         - Este endpoint permite recibir todos los CPS de una ciudad especifica
         - PERMITE -> (GET)
@@ -211,37 +229,98 @@ Se usara Bearer token
 
 ## Casos de uso
 
-### Payloads
-#### EV_Registry
-```json
-//POST https://EV_registry.es/api/cps
+### Data and Payloads
+
+#### Estados - ALL
+```javascript
   {
-    /*TODO Datos del CP*/
-    ID,
-    Credential,
-    ...
+    "ACTIVE",
+    "WAITING",
+    "OUT_OF_SERVICE",
+    "CHARGING_CENTRAL",
+    "BROKEN",
+    "DISCONNECTED"
   }
-//POST https://EV_registry
+```
+#### CP - ALL
+```json
+    //With or without credential
+  {
+    "ID": "UUID",
+    "Ciudad": "String",
+    "Calle": "String",
+    "Precio_KWH": "float",
+    //---------------------------- CUANDO MUESTRA ESTADO
+    "Estado": "ESTADOS",
+    "EstadoIsChanged": "boolean",
+    "Timestamp": "String",
+    "KafkaOK": "boolean",
+    //---------------------------- CUANDO CARGA
+    "AlreadyCharged": "float",
+    "DriverID": "UUID"
+  }
+```
+#### Ticket - ALL
+```json
+  {
+    "ID": "UUID",
+    "CP_ID": "UUID", //FK CP
+    "Driver_ID": "UUID", //FK Driver
+
+    //---------------------------- CUANDO EMPIEZA LA CARGA
+    "StartTime": "Timestamp",
+
+    //---------------------------- CUANDO ACABA LA CARGA
+    "EndTime": "Timestamp", 
+    "Price": "Float",
+  }
 ```
 
+#### Driver - ALL
+```json
+{
+  "ID": "UUID",
+}
+```
+
+#### Logs - ALL
+```json
+{
+  "IP":"String",
+  "Date": "Datetime",
+  "Code": "Code",
+  "Description": "String",
+}
+```
 
 
 ### EV_CENTRAL 
 #### CPs
-1. Conseguir todos los CPS -> 
-2. Recibir estado de un CP -> ```POST https://EV_central/api/cps/:id```
-3. Parar 1 CP
-4. Parar ALL CPS
-5. Romper 1 CP
-6. Romper ALL CPS
-7. Start 1 CP
-8. Start ALL CPS
-9. Modificar Precio 1 CP
+1. Conseguir todos los CPS -> ```GET https://EV_central/api/cps/``` 
+2. Cambiar estado de un CP -> ```POST https://EV_central/api/cps/:id```
+   1. CP envia su estado a ```POST https://EV_central/api/cps/:id```
+   ```json
+   {
+    "Estado": "State",
+   }
+   ```
+3. Parar 1 CP ->    ```POST https://EV_central/api/cps/stop/:id```
+4. Parar ALL CPS -> ```POST https://EV_central/api/cps/stop/```
+5. Romper 1 CP ->   ```POST https://EV_central/api/cps/break/:id```
+6. Romper ALL CPS ->```POST https://EV_central/api/cps/break/```
+7. Start 1 CP -> ```POST https://EV_central/api/cps/start/:id```
+8. Start ALL CPS -> ```POST https://EV_central/api/cps/start/```
+9. Modificar Precio 1 CP -> ```UPDATE https://EV_central/api/:id```
 ---
-10. Modificar Localización 1 CP
+1.  Modificar Localización 1 CP -> ```UPDATE https://EV_central/api/:id```
 
 #### Tickets
 
+1. Leer todos los tickets de la base de datos
+2. Crar Ticket
+3. Editar ticket
+4. Modificar ticket
+5. Elimiar ticket
 
 ### EV_Registry 
 
