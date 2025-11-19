@@ -228,8 +228,8 @@ Se usara Bearer token
 
 ### EV_CENTRAL 
 #### CPs
-1. Conseguir todos los CPS
-2. Enviar estado de un CP
+1. Conseguir todos los CPS -> 
+2. Recibir estado de un CP -> ```POST https://EV_central/api/cps/:id```
 3. Parar 1 CP
 4. Parar ALL CPS
 5. Romper 1 CP
