@@ -8,7 +8,17 @@ Cosas a tener en cuenta:
 
 ## Diseño tecnico
 ![alt text](/readme/image.png)
-## EV_Central - NO DOCUMENTADO / SIN DIAGRAMA
+## Requisitos 
+1. EV_Central
+2. EV_Registry
+3. Front
+4. CP
+   1. Monitor
+   2. Engine
+5. Driver
+6. Weather Control Center
+
+
 ### Endpoints
 
 //Especificar payloads de cada endpoint
