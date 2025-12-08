@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { CpModule } from './cp/cp.module';
-import { LogsModule } from './logs/logs.module';
-import { TicketModule } from './ticket/ticket.module';
+import { CpModule } from './modules/cp/cp.module';
 import { AlertModule } from './modules/alert/alert.module';
 
 @Module({
@@ -11,6 +9,6 @@ import { AlertModule } from './modules/alert/alert.module';
     driver: ApolloDriver,
     graphiql: true,
     autoSchemaFile: true,
-  }), CpModule, LogsModule, TicketModule, AlertModule],
+  }), CpModule, AlertModule],
 })
 export class AppModule {}
