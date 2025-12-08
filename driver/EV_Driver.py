@@ -1,5 +1,8 @@
 ## Driver de prueba igual que dummy_central, es una solución temporal àra verificar funcionamiento de kafka y CPs
 
+# TODO implemented patch which would impede ALL the drivers to comply to only one's charging petition
+# The patch is awfull but works, should rewrite grouping in kafka. Fix: lines 148-152
+
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.errors import KafkaError
 import json
@@ -142,7 +145,11 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         if stop_event.is_set():
             break
 
-        data = msg.value
+        data = msg
+    
+        if data.get("driver_id") and data["driver_id"] != driver_info["id"]:
+            continue
+
         action = data.get("action")
         if action == "CONNECT_CP_RESPONSE":
             if data.get("isValidated"):
