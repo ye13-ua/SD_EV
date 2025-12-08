@@ -13,7 +13,7 @@ export class CpResolver {
 
     @Query(() => CP , {name: "cp", description: "Devuelve el cp que coincida con el id de entrada"})
     getCp(@Args("id") id: string): Promise<CP> {
-        return this.cpService.getCp();
+        return this.cpService.getCp(id);
     }
 
 }
