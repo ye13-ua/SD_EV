@@ -9,11 +9,11 @@ export class CpResolver {
     ) {}
 
     @Query(() => [CP], {name: "cps", description: "Devuelve todos los cps de la base de datos"})
-    getCps() {
+    getAllCps() {
         return this.cpService //TODO
     }
 
-    @Query(() => CP ,{name: "cp", description: "Devuelve el cp que coincida con el id de entrada"})
+    @Query(() => CP , {name: "cp", description: "Devuelve el cp que coincida con el id de entrada"})
     getCp(@Args("id") id: string) {
         //TODO
     }

@@ -1,4 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class CpService {}
+export class CpService {
+    getAllCps() {
+
+    }
+
+    getCp() {
+
+    }
+
+
+}
