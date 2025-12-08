@@ -15,6 +15,9 @@ TIMEOUT = 4
 MIN_TEMP = 0
 MAX_DISTANCE = 50
 
+GRID_LAT_STEP = 0.5
+GRID_LON_STEP = 0.5
+
 LOCAL_FILE = os.getenv("LOCAL_FILE","")
 LOCALES = [] # example locale {CP_UUID, lat, long, last temp}
 REGION_FILE = os.getenv("REGION_FILE","")
@@ -25,6 +28,8 @@ LOG_FILE = os.getenv("LOG_FILE","")
 
 OPENWEATHER_URL = os.getenv("OPENWEATHER_URL","")
 OPENWEATHER_API = os.getenv("OPENWEATHER_API","")
+
+CENTRAL_GRAPHQL = os.getenv("CENTRAL_GRAPHQL", "")
 
 # Compute the distance between points
 def haversine(lat1, lon1,lat2,lon2):
@@ -37,41 +42,38 @@ def haversine(lat1, lon1,lat2,lon2):
          math.sin(d_lon/2)**2)
     return 2 * R * math.asin(math.sqrt(a))
 
-def build_regions():
+# New grid functionality
+# Sets a CP to a closest fixed pint at the grid
+# lat/lon being the points and step the grid step
+# returns direct point from the grid
+def snap_to_grid(lat, lon, step=0.5):
+    grid_lat = round(lat / step) * step
+    grid_lon = round(lon / step) * step
+    return grid_lat, grid_lon
+
+# Generate the grid with each of the points based on the available CPs. The regions don't even need to be connected and still should connect well enough
+def assign_regions():
     global REGIONS
 
-    if os.path.exists(REGION_FILE):
-        with open(REGION_FILE, "r", encoding="utf-8") as f:
-            REGIONS = json.load(f)
-        print_log(f"Loaded {len(REGIONS)} regions from {REGION_FILE}")
-        return
-    print_log("Building regions from locales")
+    region_map = {}
 
     for cp in LOCALES:
-        lat = cp["lat"]
-        lon = cp["lon"]
+        lat, lon = cp["lat"], cp["lon"]
+        glat, glon = snap_to_grid(lat, lon, 0.5)
 
-        assigned = False
+        key = f"{glat},{glon}"
+        if key not in region_map:
+            region_map[key] = {
+                "lat": glat,
+                "lon": glon,
+                "cps": [],
+                "alert": False,
+                "last_temp": None
+            }
 
-        for region in REGIONS:
-            d = haversine(lat,lon, region["lat"], region["lon"])
-            if d < MAX_DISTANCE:
-                # choose the closest one to it in the region
-                assigned = True
-                break
-        if not assigned:
-            REGIONS.append(
-                {
-                    "lat":lat,
-                    "lon":lon,
-                    "cps":[cp["cp_id"]],
-                    "alert": False,
-                    "last_temp": None
-                }
-            )
-    with open(REGION_FILE, "w", encoding="utf-8") as f:
-        json.dump(REGIONS, f, indent=4)
-    print_log(f"Created {len(REGIONS)} regions.")
+        region_map[key]["cps"].append(cp["cp_id"])
+
+    REGIONS = list(region_map.values())
 
 def load_locales():
     global LOCALES, LOCAL_FILE
@@ -93,21 +95,72 @@ def load_locales():
 def request_locales():
     global LOCALES
 
-    # use GRAPH QL
-    # call Centrall and request locales
-    # Add it to laceles
-    # check if the coordinate is 50km or further from any ohter CP and create a new region, if not set it's region to the appropriate already created one
+    query = """
+    query GetLocales {
+        locales {
+            cp_id
+            lat
+            lon
+        }
+    }
+    """
+
+    try:
+        resp = requests.post(
+            CENTRAL_GRAPHQL,
+            json={"query": query},
+            timeout=5
+        )
+        data = resp.json()
+
+        if "errors" in data:
+            print_log(f"GraphQL error: {data['errors']}")
+            return
+        
+        LOCALES = data["data"]["locales"]
+        print_log(f"Fetched {len(LOCALES)} locales from CENTRAL via GraphQL.")
+    except Exception as e:
+        print_log(f"Failed to request locales from CENTRAL: {e}")
 
 def notify_central(region, status: str, temp: float):
-    payload = {
-        "regionlat": region["lat"],
-        "region_lon": region["lon"],
-        "cp_id": region["cp_id"],
-        "status": status,
-        "temperature": temp
+    mutation = """
+    mutation NotifyWeather($input: WeatherAlertInput!) {
+        notifyWeather(input: $input) {
+            ok
+            message
+        }
+    }
+    """
+    
+    variables = {
+        "input": {
+            "regionLat": region["lat"],
+            "regionLon": region["lon"],
+            "cps": region["cps"],
+            "status": status,
+            "temperature": temp
+        }
     }
 
-    #  Send payload
+    try:
+        resp = requests.post(
+            CENTRAL_GRAPHQL,
+            json={"query":mutation, "variables":variables},
+            timeout=5
+        )
+        data = resp.json()
+
+        if "errors" in data:
+            print_log(f"GraphQL error notifying CENTRAL: {data['errors']}")
+            return
+
+        result = data["data"]["notifyWeather"]
+        print_log(f"CENTRAL notified ({status}) - {result}")
+
+    except Exception as e:
+        print_log(f"Failed to notify CENTRAL: {e}")
+
+    #  Send payload via GRAPH QL (maybe)
 
 def weather_call():
     # optimize the locales up to simple weather regions
@@ -155,7 +208,7 @@ def save_to_logs(msg):
 # MAIN SEGMENT
 def main():
     load_locales()
-    build_regions()
+    assign_regions()
 
     while True:
         weather_call()
