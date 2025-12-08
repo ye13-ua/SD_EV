@@ -29,18 +29,39 @@ LOG_FILE = os.getenv("LOG_FILE","")
 OPENWEATHER_URL = os.getenv("OPENWEATHER_URL","")
 OPENWEATHER_API = os.getenv("OPENWEATHER_API","")
 
+GEOCODE_URL = os.getenv("GEOCODE_URL", "http://api.openweathermap.org/geo/1.0/direct")
+CITY_CACHE = {}
+
 CENTRAL_GRAPHQL = os.getenv("CENTRAL_GRAPHQL", "")
 
-# Compute the distance between points
-def haversine(lat1, lon1,lat2,lon2):
-    R = 6371 # Km
-    d_lat = math.radians(lat2-lat1)
-    d_lon = math.radians(lon2-lon1)
-    a = (math.sin(d_lat/2)**2 + 
-         math.cos(math.radians(lat1)) *
-         math.cos(math.radians(lat2)) *
-         math.sin(d_lon/2)**2)
-    return 2 * R * math.asin(math.sqrt(a))
+def geocode_city(city_name):
+    if city_name in CITY_CACHE:
+        return CITY_CACHE[city_name]
+
+    if not OPENWEATHER_API:
+        print_log("[WARNING] OPENWEATHER_API key not set; cannot geocode.")
+        return None, None
+    
+    try:
+        params = {
+            "q": city_name,
+            "limit": 1,
+            "appid": OPENWEATHER_API
+        }
+        resp = requests.get(GEOCODE_URL, params=params, timeout=5)
+        data = resp.json()
+
+        if not data:
+            print_log(f"[WARNING] No geocoding result for '{city_name}'")
+
+        lat = data[0]["lat"]
+        lon = data[0]["lon"]
+        CITY_CACHE[city_name] = (lat, lon)
+        print_log(f"Geocoded '{city_name}' at: ({lat}, {lon})")
+        return lat, lon
+    except Exception as e:
+        print_log(f"[Error] Failed geocoding '{city_name}': {e}")
+        return None, None
 
 # New grid functionality
 # Sets a CP to a closest fixed pint at the grid
@@ -75,23 +96,6 @@ def assign_regions():
 
     REGIONS = list(region_map.values())
 
-def load_locales():
-    global LOCALES, LOCAL_FILE
-
-    if not os.path.exists(LOCAL_FILE):
-        print_log("Could not find LOCALES file. Requesting from CENTRAL...")
-        request_locales()
-        return
-
-    with open(LOCAL_FILE, "r", encoding="utf-8") as f:
-        LOCALES = json.load(f)
-    
-    if LOCALES:
-        print_log(f"{len(LOCALES)} locales loaded. Sample: {LOCALES[0]}")
-    else:
-        print_log(f"Locales file was empty. Requesting from CENTTAL...")
-        request_locales()
-
 def request_locales():
     global LOCALES
 
@@ -99,8 +103,7 @@ def request_locales():
     query GetLocales {
         locales {
             cp_id
-            lat
-            lon
+            city
         }
     }
     """
@@ -117,10 +120,45 @@ def request_locales():
             print_log(f"GraphQL error: {data['errors']}")
             return
         
-        LOCALES = data["data"]["locales"]
-        print_log(f"Fetched {len(LOCALES)} locales from CENTRAL via GraphQL.")
+        central_list = data["data"]["locales"]
+        print_log(f"Fetched {len(central_list)} locales from CENTRAL via GraphQL.")
+
     except Exception as e:
         print_log(f"Failed to request locales from CENTRAL: {e}")
+
+    known_ids = {cp["cp_id"] for cp in LOCALES}
+
+    new_cps = [cp for cp in central_list if cp["cp_id"] not in known_ids]
+
+    if new_cps:
+        print_log(f"Detected {len(new_cps)} NEW CPs.")
+    else:
+        print_log("No new CPs found in a call.")
+
+    for cp in new_cps:
+        city = cp["city"]
+        lat, lon = geocode_city(city)
+
+        if lat is None or lon is None:
+            print_log(f"[WARNING] Skipping new CP {cp['cp_id']} (city '{city}' cannot be geocoded)")
+            continue
+
+        LOCALES.append({
+            "cp_id": cp["cp_id"],
+            "city": city,
+            "lat": lat,
+            "lon": lon,
+            "last_temp": None,
+            "alert": False
+        })
+
+        print_log(f"Added new CP {cp['cp_id']} ({city}) at ({lat}, {lon})")
+
+    if new_cps:
+        assign_regions()
+        print_log("Regions updated with new CPs.")
+
+    print_log(f"{len(LOCALES)} CPs currently monitord in {len(REGIONS)} regions")
 
 def notify_central(region, status: str, temp: float):
     mutation = """
@@ -134,8 +172,6 @@ def notify_central(region, status: str, temp: float):
     
     variables = {
         "input": {
-            "regionLat": region["lat"],
-            "regionLon": region["lon"],
             "cps": region["cps"],
             "status": status,
             "temperature": temp
@@ -207,11 +243,14 @@ def save_to_logs(msg):
 
 # MAIN SEGMENT
 def main():
-    load_locales()
-    assign_regions()
-
+    request_locales()
+    i = 0
     while True:
+        i += 1
         weather_call()
+        if (i == 3):
+            request_locales()
+            i = 0
         time.sleep(TIMEOUT)
 
 if __name__ == "__main__":

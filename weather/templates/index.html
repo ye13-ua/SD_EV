@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EV_W Weather Control</title>
+    <script src="/static/gui.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; }
+        h1 { margin-bottom: 10px; }
+        #map { border: 1px solid #444; background: white; }
+        #info {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            width: 850px;
+        }
+        button {
+            padding: 8px 14px;
+            margin-bottom: 10px;
+            margin-right: 10px;
+        }
+        .alert { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>EV_W Weather Map</h1>
+
+    <button onclick="refreshCPs()">Refresh CPs from Central</button>
+    <button onclick="loadRegions()">Reload Regions</button>
+
+    <br>
+
+    <canvas id="map" width="900" height="550"></canvas>
+
+    <div id="info">
+        <h3>Click a region on the map</h3>
+        <p>Region details will appear here.</p>
+    </div>
+</body>
+</html>
