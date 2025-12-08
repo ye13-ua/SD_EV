@@ -14,14 +14,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   }), 
   TypeOrmModule.forRoot({
     type: "postgres",
-    database: ":memory:",
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT) || 5432,
+    database:  process.env.DB_NAME || "evcharging",
+    username:  process.env.DB_USER || "usuario",
+    password:  process.env.DB_PASSWORD || "contraseña",
+
     entities: ["dist/**/*.entity{.ts,.js}"],
     synchronize: true
   }),
   CpModule, 
   AlertModule,
-  
-
   ],
 })
 export class AppModule {}

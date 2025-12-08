@@ -20,4 +20,5 @@ export class CP {
     @Column({type: "float"})
     @Field(() => Float)
     precio_kwh: number
+
 }
