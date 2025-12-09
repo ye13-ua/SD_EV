@@ -11,6 +11,18 @@ mutation {
   }
 }
 ```
+```graphql
+mutation {
+  createCp(
+    cpDto: {id: "a4aef408-3875-4b8f-a2a6-c4286fe836c1", calle: "C/123123", ciudad: "Madrid", precio_kwh: 12.5}
+  ) {
+    id
+    calle
+    ciudad
+    precio_kwh
+  }
+}
+```
 Leer cps
 ```graphql
 {

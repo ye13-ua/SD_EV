@@ -9,26 +9,21 @@ import { CreateCpDto } from './dto/create-cp.dto';
 export class CpService {
     constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){}
     
+    //---------------------------- CREATE ----------------------------
     async createCP(cpDto: CreateCpDto): Promise<CP> {
         const newCP = this.cpRepository.create(cpDto);
-
         return await this.cpRepository.save(newCP)
     }
 
-
+    //---------------------------- READ ----------------------------
     async readAllCps(): Promise<CP[]> {
-
         return this.cpRepository.find()
     }
 
     async readCp(id: string): Promise<CP> {
-
-        const cp1 = new CP();
-        cp1.id="ID2"
-        //return this.cpRepository.findOne({where: {id: id}})
-        return cp1;
+        return this.cpRepository.findOneOrFail({where: {id: id}})
     }
+    //---------------------------- UPDATE ----------------------------
 
-
-
+    //---------------------------- DELETE ----------------------------
 }
