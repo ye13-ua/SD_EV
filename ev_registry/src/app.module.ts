@@ -3,7 +3,7 @@ import { CpModule } from './modules/cp/cp.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './modules/auth/auth.module';
+import { RegisterModule } from './modules/register/register.module';
 
 @Module({
   imports: [
@@ -24,6 +24,6 @@ import { AuthModule } from './modules/auth/auth.module';
     synchronize: true
   }),
   CpModule,
-  AuthModule],
+  RegisterModule],
 })
 export class AppModule {}
