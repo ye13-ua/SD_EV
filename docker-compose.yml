@@ -19,11 +19,11 @@ services:
     build: ./central
     container_name: central
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: "db"
+      DB_PORT: 5432
+      DB_NAME: "evcharging"
+      DB_USER: "usuario"
+      DB_PASSWORD: "contraseña"
       KAFKA_BOOTSTRAP: "kafka:9092"
       # kafka
       CENTRAL_DRIVER_COMMANDS: "Central.Driver.Commands"
@@ -46,25 +46,24 @@ services:
     networks:
       - ev_net
     command: npm run start
-
   # ----------------------- CENTRAL 2 -----------------------
   
   ev_central:
     build: ./sv-central
     container_name: ev_central
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT={DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - KAFKA_BOOTSTRAP=kafka:9092
+      DB_HOST: "db"
+      DB_PORT: 5432
+      DB_NAME: "evcharging"
+      DB_USER: "usuario"
+      DB_PASSWORD: "contraseña"
+      KAFKA_BOOTSTRAP: "kafka:9092"
       # kafka
-      - CENTRAL_DRIVER_COMMANDS=Central.Driver.Commands
-      - CENTRAL_CP_COMMANDS=Central.CP.Commands
-      - DRIVER_COMMANDS=Driver.Commands
+      CENTRAL_DRIVER_COMMANDS: "Central.Driver.Commands"
+      CENTRAL_CP_COMMANDS: "Central.CP.Commands"
+      DRIVER_COMMANDS: "Driver.Commands"
 
-      - PORT=4000
+      PORT: 4000
     depends_on:
       #kafka:
       #  condition: service_healthy
@@ -74,17 +73,17 @@ services:
       - "4000:4000"
     networks:
       - ev_net
-    command: npm run start
+    command: npm run start:prod
 
   ev_registry:
     build: ./ev_registry
     container_name: ev_registry
     environment:
-      DB_HOST: db
+      DB_HOST: "db"
       DB_PORT: 5432
-      DB_NAME: evcharging
-      DB_USER: usuario
-      DB_PASSWORD: contraseña
+      DB_NAME: "evcharging"
+      DB_USER: "usuario"
+      DB_PASSWORD: "contraseña"
       PORT: 4001
 
       
@@ -95,7 +94,7 @@ services:
       - "4001:4001"
     networks:
       - ev_net
-    command: npm run start
+    command: npm run start:prod
 
   # ----------------------- KAFKA -----------------------
   zookeeper:

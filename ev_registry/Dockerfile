@@ -1,5 +1,5 @@
 # ---- Etapa 1: Build ----
-FROM node:18-alpine AS builder
+FROM node:23 AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN npm run build
 
 
 # ---- Etapa 2: Runtime ----
-FROM node:18-alpine
+FROM node:23
 
 WORKDIR /app
 
@@ -34,4 +34,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 4001
 
 # Comando de arranque
-CMD ["node", "dist/main.js"]
+CMD ["npm","run", "start:prod"]
