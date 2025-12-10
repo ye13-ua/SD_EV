@@ -23,11 +23,13 @@ export class CreateCpInput {
     precio_kwh: number
 
     // ----------------------- REGISTRO -----------------------
-    @Field({nullable: true})
-    clientId: string
-    
+
     @Field({nullable: true})
     clientSecretHash: string
+
+    @Field({nullable: true})
+    clientSecret: string
+
 
     // ----------------------- AUTENTICACIÓN -----------------------
     @Field({nullable: true})

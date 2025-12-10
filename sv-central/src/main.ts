@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import * as fs from "node:fs"
 
 async function bootstrap() {
+  //TODO cambiar el archivo de certs al que esta en docker
   const app = await NestFactory.create(AppModule, {httpsOptions:
       {
         key: fs.readFileSync("../certs/registry.key"),

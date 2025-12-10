@@ -23,11 +23,11 @@ export class CP {
 // ----------------------- REGISTRO -----------------------
     @Column({nullable: true})
     @Field({nullable: true})
-    clientId: string
+    clientSecretHash: string
 
     @Column({nullable: true})
     @Field({nullable: true})
-    clientSecretHash: string
+    clientSecret: string
 // ----------------------- AUTENTICACIÓN -----------------------
     @Column({nullable: true})
     @Field({nullable: true})

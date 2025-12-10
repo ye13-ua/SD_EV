@@ -1,14 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as fs from "node:fs"
+import { readFileSync } from "node:fs"
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, 
+    //TODO https para docker
     {httpsOptions:
     {
-      key: fs.readFileSync("../certs/registry.key"),
-      cert: fs.readFileSync("../certs/registry.crt"),
+      key: readFileSync("../certs/registry.key"),
+      cert: readFileSync("../certs/registry.crt"),
     },}
   );
   app.useGlobalPipes(new ValidationPipe())

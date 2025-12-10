@@ -12,6 +12,12 @@ export class CpResolver {
 	createCp(@Args("createCpInput") createCpInput: CreateCpInput): Promise<CP> {
 		return this.cpService.create(createCpInput)
 	}
+	//Ambos tienen la misma funcionalidad xdxd
+	@Mutation(() => CP, {name: "registerCp", description: "Registra el CP en la base de datos"})
+	registerCP(@Args("registerCpInput") registerCpInput: CreateCpInput): Promise<CP> {
+		return this.cpService.create(registerCpInput)
+	}
+
 	//---------------------------- READ ----------------------------
 	@Query(() => [CP], {name: "findAllCps", description: "Devuelve todos los cps de la base de datos"})
 	findAll(): Promise<CP[]> {

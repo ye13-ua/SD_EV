@@ -4,8 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCpInput } from './dto/create-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
-
-
+import { randomBytes } from 'crypto';
+import { hash } from "argon2";
 
 @Injectable()
 export class CpService {
@@ -13,8 +13,17 @@ export class CpService {
 	
 	//---------------------------- CREATE ----------------------------
 	async create(createCpInput: CreateCpInput): Promise<CP> {
-		const newCP = this.cpRepository.create(createCpInput);
-		return await this.cpRepository.save(newCP)
+		
+
+		const clienteSecret = randomBytes(32).toString("hex");
+		const clientSecretHash = await hash(clienteSecret)
+		createCpInput.clientSecretHash = clientSecretHash;
+
+			
+		const savedCP = await this.cpRepository.save(this.cpRepository.create(createCpInput))
+		
+		savedCP.clientSecret = clienteSecret;
+		return savedCP;
 	}
 
 	//---------------------------- READ ----------------------------
