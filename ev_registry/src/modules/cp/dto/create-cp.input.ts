@@ -2,7 +2,7 @@ import { Field, Float, InputType } from "@nestjs/graphql";
 import { IsNumber, IsString, IsUUID, Length, Min } from "class-validator";
 
 @InputType()
-export class CreateCpDto {
+export class CreateCpInput {
 
     @Field()
     @IsUUID()

@@ -3,6 +3,7 @@ import { CpModule } from './modules/cp/cp.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     entities: ["dist/**/*.entity{.ts,.js}"],
     synchronize: true
   }),
-  CpModule],
+  CpModule,
+  AuthModule],
 })
 export class AppModule {}
