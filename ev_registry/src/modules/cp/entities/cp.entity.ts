@@ -1,4 +1,4 @@
-import {ObjectType, Field, Float} from "@nestjs/graphql"
+import { ObjectType, Field, Float} from "@nestjs/graphql"
 import { Column, Entity, PrimaryColumn } from "typeorm"
 
 @Entity()
@@ -20,5 +20,16 @@ export class CP {
     @Column({type: "float"})
     @Field(() => Float)
     precio_kwh: number
+// ----------------------- REGISTRO -----------------------
+    @Column({nullable: true})
+    @Field({nullable: true})
+    clientId: string
 
+    @Column({nullable: true})
+    @Field({nullable: true})
+    clientSecretHash: string
+// ----------------------- AUTENTICACIÓN -----------------------
+    @Column({nullable: true})
+    @Field({nullable: true})
+    symmetricKey: string
 }

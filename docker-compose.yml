@@ -86,7 +86,9 @@ services:
       DB_PASSWORD: "contraseña"
       PORT: 4001
 
-      
+    volumes:
+      - ./certs/registry.crt:/certs/registry.crt
+      - ./certs/registry.key:/certs/registry.key
     depends_on:
       db: 
         condition: service_started

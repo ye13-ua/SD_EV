@@ -1,5 +1,5 @@
 import { Field, Float, InputType } from "@nestjs/graphql";
-import { IsNumber, IsString, IsUUID, Length, Min } from "class-validator";
+import { IsHash, IsNumber, IsString, IsUUID, Length, Min } from "class-validator";
 
 @InputType()
 export class CreateCpInput {
@@ -13,7 +13,7 @@ export class CreateCpInput {
     ciudad: string
     
     @Field()
-    @Length(3, 30)
+    @Length(3, 60)
     @IsString()
     calle: string
     
@@ -21,4 +21,15 @@ export class CreateCpInput {
     @IsNumber()
     @Min(0)
     precio_kwh: number
+
+    // ----------------------- REGISTRO -----------------------
+    @Field({nullable: true})
+    clientId: string
+    
+    @Field({nullable: true})
+    clientSecretHash: string
+
+    // ----------------------- AUTENTICACIÓN -----------------------
+    @Field({nullable: true})
+    symmetricKey: string
 }
