@@ -77,23 +77,22 @@ services:
     command: npm run start
 
   ev_registry:
-    build: ./sv-central
+    build: ./ev_registry
     container_name: ev_registry
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT={DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-
-      - PORT: 4001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: evcharging
+      DB_USER: usuario
+      DB_PASSWORD: contraseña
+      PORT: 4001
 
       
     depends_on:
       db: 
         condition: service_started
     ports:
-      - "4000:4001"
+      - "4001:4001"
     networks:
       - ev_net
     command: npm run start

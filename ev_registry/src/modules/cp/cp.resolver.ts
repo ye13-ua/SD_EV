@@ -3,14 +3,13 @@ import { CpService } from './cp.service';
 import { CP } from './entities/cp.entity';
 import { CreateCpDto } from './dto/create-cp.input';
 import { UpdateCpDto } from './dto/update-cp.input';
-import { DeleteResult } from 'typeorm';
 
 @Resolver(() => CP)
 export class CpResolver {
     constructor(private cpService: CpService) {}
     //---------------------------- CREATE ----------------------------
     @Mutation(() => CP, {name: "createCp", description: "Crea un nuevo cp en la base de datos"})
-    createCp(@Args("createCpDto") cpDto: CreateCpDto): Promise<CP> {
+    createCp(@Args("cp") cpDto: CreateCpDto): Promise<CP> {
         return this.cpService.createCP(cpDto)
     }
     //---------------------------- READ ----------------------------
@@ -25,7 +24,7 @@ export class CpResolver {
     }
     //---------------------------- UPDATE ----------------------------
     @Mutation(() => CP, {name: "updateCp", description: "Actualiza un cp"})
-    updateCp(@Args("updateCpDto") updateCpDto: UpdateCpDto): Promise<CP> {
+    updateCp(@Args("cp") updateCpDto: UpdateCpDto): Promise<CP> {
         return this.cpService.updateCp(updateCpDto);
     }
 
