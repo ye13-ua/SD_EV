@@ -37,6 +37,8 @@ PING_INTERVAL = 2
 
 MONITOR_DOWN = False
 
+TOKEN = None
+
 CP_STATUS_CHANGED = False
 already_charged = 0.0
 target_kwh = 0.0
@@ -172,6 +174,8 @@ def handle_engine():
         time.sleep(PING_INTERVAL)
 
 # Registers the CP with the Central and Central's BD
+#TODO Rework for GQL and redirect to Registry
+# We recieve Token from the response of this
 def register_CP_in_central():
     msg = {"ID_UUID": CP_ID,
            "Ubicacion": CP_ALIAS,
@@ -181,6 +185,7 @@ def register_CP_in_central():
     sio.emit("CP_Central_Create_Socket", msg)
 
 # Sends, on change, the status of the charging point
+#TODO rework for GQL (ID_UUID is now ID)
 def send_status_to_central(status, kafka_ok):
     global last_central_contact, already_charged, driver_id
     msg = {"ID_UUID": CP_ID,
