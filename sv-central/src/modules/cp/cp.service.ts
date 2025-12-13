@@ -2,31 +2,44 @@ import { Injectable } from '@nestjs/common';
 import { CP } from './entities/cp.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-
+import { CreateCpInput } from './dto/create-cp.input';
+import { UpdateCpInput } from './dto/update-cp.input';
+import { randomBytes } from 'crypto';
+import { hash } from "argon2";
 
 @Injectable()
 export class CpService {
-    constructor(
-        @InjectRepository(CP)
-        private readonly cpRepository: Repository<CP>
-    ){}
-    async getAllCps(): Promise<CP[]> {
-        
-        //const cp1 = new CP();
-        //cp1.id="ID2"
+	constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){}
+	
+	//---------------------------- CREATE ----------------------------
+	async create(createCpInput: CreateCpInput): Promise<CP> {
+		
 
+		const clienteSecret = randomBytes(32).toString("hex");
+		const clientSecretHash = await hash(clienteSecret)
+		createCpInput.clientSecretHash = clientSecretHash;
 
-        return this.cpRepository.find()
-        //return [cp1];
-    }
+			
+		const savedCP = await this.cpRepository.save(this.cpRepository.create(createCpInput))
+		
+		savedCP.clientSecret = clienteSecret;
+		return savedCP;
+	}
 
-    async getCp(id: string): Promise<CP> {
+	//---------------------------- READ ----------------------------
+	async findAll(): Promise<CP[]> {
+		return this.cpRepository.find()
+	}
 
-        const cp1 = new CP();
-        cp1.id="ID2"
-        //return this.cpRepository.findOne({where: {id: id}})
-        return cp1;
-    }
-
-
+	async findOne(id: string): Promise<CP> {
+		return this.cpRepository.findOneOrFail({where: {id: id}})
+	}
+	//---------------------------- UPDATE ----------------------------
+	async update(updateCpInput: UpdateCpInput): Promise<CP> {
+		return this.cpRepository.save(updateCpInput)
+	}
+	//---------------------------- DELETE ----------------------------
+	async remove(id: string): Promise<boolean> {
+		return (await (this.cpRepository.delete(id))).affected !== 0;
+	}
 }
