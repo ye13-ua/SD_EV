@@ -4,6 +4,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CpModule } from './modules/cp/cp.module';
 import { AlertModule } from './modules/alert/alert.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { StatusCpModule } from './modules/statusCp/statuscp.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   }),
   CpModule, 
   AlertModule,
+  StatusCpModule
   ],
 })
 export class AppModule {}

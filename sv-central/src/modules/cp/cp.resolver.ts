@@ -3,7 +3,6 @@ import { CpService } from './cp.service';
 import { CP } from './entities/cp.entity';
 import { CreateCpInput } from './dto/create-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
-
 @Resolver(() => CP)
 export class CpResolver {
 	constructor(private cpService: CpService) {}
@@ -39,5 +38,7 @@ export class CpResolver {
 	removeCp(@Args("id") id: string): Promise<boolean> {
 		return this.cpService.remove(id);
 	}
+
+	
 
 }

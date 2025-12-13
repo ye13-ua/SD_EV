@@ -7,6 +7,8 @@ import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
 import { hash } from "argon2";
 
+
+
 @Injectable()
 export class CpService {
 	constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){}
@@ -19,7 +21,6 @@ export class CpService {
 		const clientSecretHash = await hash(clienteSecret)
 		createCpInput.clientSecretHash = clientSecretHash;
 
-			
 		const savedCP = await this.cpRepository.save(this.cpRepository.create(createCpInput))
 		
 		savedCP.clientSecret = clienteSecret;
@@ -38,6 +39,7 @@ export class CpService {
 	async update(updateCpInput: UpdateCpInput): Promise<CP> {
 		return this.cpRepository.save(updateCpInput)
 	}
+
 	//---------------------------- DELETE ----------------------------
 	async remove(id: string): Promise<boolean> {
 		return (await (this.cpRepository.delete(id))).affected !== 0;
