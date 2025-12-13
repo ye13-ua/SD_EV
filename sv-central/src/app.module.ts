@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CpModule } from './modules/cp/cp.module';
-import { AlertModule } from './modules/alert/alert.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatusCpModule } from './modules/statusCp/statuscp.module';
+import { AlertModule } from './modules/alert/alert.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { StatusCpModule } from './modules/statusCp/statuscp.module';
   }),
   CpModule, 
   AlertModule,
-  StatusCpModule
+  StatusCpModule,
+  ScheduleModule.forRoot()
   ],
 })
 export class AppModule {}

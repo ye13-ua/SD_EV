@@ -1,21 +1,21 @@
-import { Resolver, Args, Mutation} from '@nestjs/graphql';
+import { Resolver, Args, Mutation, Query} from '@nestjs/graphql';
 import { StatusCpService } from './statuscp.service';
 import { StatusCpInput } from './dto/status-cp.input';
 import { StatusCP } from './entities/statuscp.entity';
-import { Query } from '@nestjs/common';
+
 
 @Resolver(() => StatusCP)
 export class StatusCpResolver {
 	constructor(private statusCpService: StatusCpService) {}
 	
 	//---------------------------- UPDATE ----------------------------
-	@Mutation(() => Boolean, { name: "updateStatusCP", description: "Para enviar el estadoa del cp aqui"})
-	updateStatusCp(@Args("statusCpInput") statusCpInput: StatusCpInput): Promise<Boolean> {
+	@Mutation(() => Boolean, { name: "updateStatusCP", description: "Para enviar el estado del cp"})
+	updateStatusCp(@Args("statusCpInput") statusCpInput: StatusCpInput): boolean {
 		return this.statusCpService.updateStatus(statusCpInput);
 	}
 
-	@Query(() => [StatusCP], {})
-	readAllStatusCP(): Promise<any> {
+	@Query(() => [StatusCP], {name: "readAllStatusCP", description: "Para devolver todos los estados de los cps guardados en memoria"})
+	readAllStatusCP(): StatusCP[] {
 		return this.statusCpService.readAllStatusCP();
 	}
 
