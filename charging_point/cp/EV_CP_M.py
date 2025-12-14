@@ -42,10 +42,11 @@ CITY_LIST = ['Alicante',
              'Zaragoza',
              'Madrid',
              'Barcelona',
-             'Ontario',
              'Ulaanbaatar',
              'Yakutsk',
-             'Tomsk']
+             'Tomsk',
+             'Norilsk',
+             'Oymyakon']
 
 TOKEN = None
 
