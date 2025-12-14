@@ -37,6 +37,16 @@ PING_INTERVAL = 2
 
 MONITOR_DOWN = False
 
+CITY_LIST = ['Alicante',
+             'Valencia',
+             'Zaragoza',
+             'Madrid',
+             'Barcelona',
+             'Ontario',
+             'Ulaanbaatar',
+             'Yakutsk',
+             'Tomsk']
+
 TOKEN = None
 
 CP_STATUS_CHANGED = False
@@ -78,7 +88,7 @@ def load_or_create_cp_data():
     # Generate a new UUID
     new_id = str(uuid.uuid4())
     calle = random.choice(['Sol','Luna','Mar','Paz','Río'])
-    ciudad = random.choice(['Alicante','Valencia','Zaragoza','Madrid','Barcelona'])
+    ciudad = random.choice()
     location = f"Calle {calle}, {ciudad}"
     alias = generate_alias(new_id, ciudad)
     data = {"id": new_id, "alias":alias, "location":location}

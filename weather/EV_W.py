@@ -76,32 +76,35 @@ def request_cities_from_central() -> list[str]:
             cities.append(c)
     return cities
 
-def notify_central_city(city: str, status: str, temperature: float):
+def create_alert(city: str):
     mutation = """
-    mutation NotifyWeather($input: WeatherAlertInput!) {
-        notifyWeather(input: $input) {
-            ok
-            message
-        }
+    mutation CreatteAlert($ciudad: String!) {
+        createAlert(ciudad: $ciudad)
     }
     """
-    
-    # Send only the city and it's status
-    variables = {
-        "input": {
-            "ciudad": city,
-            "status": status,
-            "temperature": temperature
-        }
-    }
+
+    variables = {"ciudad": city}
 
     try:
-        data = gql_post(mutation, variables=variables, timeout=5)
-        result = data.get("notifyWeather", {})
-        print_log(f"CENTRAL notified city='{city}' status={status} temp={temperature} -> {result}")
-
+        gql_post(mutation, variables=variables, timeout=5)
+        print_log(f"CENTRAL createAlert sent for city='{city}'")
     except Exception as e:
-        print_log(f"Failed to notify CENTRAL for city {city}: {e}")
+        print_log(f"Failed to createAlert for city '{city}': {e}")
+
+def remove_alert(city: str):
+    mutation = """
+    mutation RemoveAlert($ciudad: String!) {
+        removeAlert(ciudad: $ciudad)
+    }
+    """
+
+    variables = {"ciudad": city}
+
+    try:
+        gql_post(mutation, variables=variables, timeout=5)
+        print_log(f"CENTRAL removeAlert sent for city='{city}'")
+    except Exception as e:
+        print_log(f"Failed to removeAlert for city '{city}': {e}")
 
 def openweather_temp_for_city(city: str) -> float:
     if not OPENWEATHER_URL or not OPENWEATHER_API:
@@ -130,23 +133,23 @@ def sync_city_state(cities: list[str]):
             print_log(f"Registered new city: '{city}'")
 
 def weather_cycle():
-    for city, st in list (CITY_STATE.items()):
+    for city, st in list(CITY_STATE.items()):
         try:
             temp = openweather_temp_for_city(city)
             st["last_temp"] = temp
             print_log(f"OpenWeather city={city}, temp={temp}C")
 
-            prev_alert = bool(st.get("alert"), False)
+            prev_alert = bool(st.get("alert", False))
             now_alert = temp < MIN_TEMP
 
             if now_alert and not prev_alert:
                 st["alert"] = True
-                notify_central_city(city, "ALERT", temp)
-                print_log(f"ALERT ENTER city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
+                create_alert(city=city)
+                print_log(f"ALERT RAISED - city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
             elif (not now_alert) and prev_alert:
                 st["alert"] = False
-                notify_central_city(city, "RESTORE", temp)
-                print_log(f"ALERT EXIT city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
+                remove_alert(city=city)
+                print_log(f"ALERT REMOVED - city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
         
         except Exception as e:
             print_log(f"ERROR weather cycle city='{city}': {e}")
