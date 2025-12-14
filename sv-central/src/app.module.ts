@@ -8,9 +8,14 @@ import { AlertModule } from './modules/alert/alert.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LogModule } from './modules/logsmod/log.module';
 import { CommandModule } from './modules/command/command.module';
+import { ConfigModule } from '@nestjs/config';
+import { KafkaModule } from './modules/kafka/kafka.module';
 
 @Module({
   imports: [
+  ConfigModule.forRoot({
+    isGlobal: true,
+  }),
   GraphQLModule.forRoot<ApolloDriverConfig>({
     driver: ApolloDriver,
     graphiql: true,
@@ -32,7 +37,8 @@ import { CommandModule } from './modules/command/command.module';
   StatusCpModule,
   ScheduleModule.forRoot(),
   LogModule,
-  CommandModule
+  CommandModule,
+  KafkaModule
   ],
 })
 export class AppModule {}

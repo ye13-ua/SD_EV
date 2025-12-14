@@ -57,8 +57,11 @@ services:
       DB_NAME: "evcharging"
       DB_USER: "usuario"
       DB_PASSWORD: "contraseña"
-      KAFKA_BOOTSTRAP: "kafka:9092"
       # kafka
+
+      KAFKA_BROKER: "kafka:9092"
+      KAFKA_GROUPID: "commands-service"
+      
       CENTRAL_DRIVER_COMMANDS: "Central.Driver.Commands"
       CENTRAL_CP_COMMANDS: "Central.CP.Commands"
       DRIVER_COMMANDS: "Driver.Commands"
