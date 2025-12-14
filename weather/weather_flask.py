@@ -46,16 +46,18 @@ TEMPLATE = """
     <th>City</th>
     <th>Temperature (°C)</th>
     <th>Status</th>
+    <th>Last update</th>
   </tr>
   {% for city, data in cities.items() %}
   <tr>
     <td>{{ city }}</td>
     <td>
-    {{ "%.2f"|format(data["last_temp"]) if data["last_temp"] is not none else "—" }}
+        {{ "%.2f"|format(data["last_temp"]) if data["last_temp"] is not none else "—" }}
     </td>
     <td class="{{ 'alert' if data["alert"] else 'ok' }}">
-    {{ "ALERT" if data["alert"] else "OK" }}
+        {{ "ALERT" if data["alert"] else "OK" }}
     </td>
+    <td>{{ data.get("last_update", "—") }}</td>
   </tr>
   {% endfor %}
 </table>

@@ -9,6 +9,9 @@ from weather_flask import run_flask
 
 from weather_state import CITY_STATE, MIN_TEMP
 
+import logging
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 VERBOSE = True
 
 TIMEOUT = 4
@@ -139,6 +142,7 @@ def weather_cycle():
         try:
             temp = openweather_temp_for_city(city)
             st["last_temp"] = temp
+            st["last_update"] = time.strftime("%H:%M:%S")
             print_log(f"OpenWeather city={city}, temp={temp}C")
 
             prev_alert = bool(st.get("alert", False))
