@@ -6,30 +6,30 @@ import { Column, Entity, PrimaryColumn } from "typeorm"
 export class CP {
 
     @PrimaryColumn({type: "uuid"})
-    @Field()
+    @Field(() => String)
     id: string
 
-    @Column()
-    @Field()
+    @Column({type: "varchar", length: 120})
+    @Field(() => String)
     ciudad: string
 
-    @Column()
-    @Field()
+    @Column({type: "varchar", length: 360})
+    @Field(() => String)
     calle: string
 
     @Column({type: "float"})
     @Field(() => Float)
     precio_kwh: number
 // ----------------------- REGISTRO -----------------------
-    @Column({nullable: true})
-    @Field({nullable: true})
+    @Column({type: "varchar", length: 420 ,nullable: true})
+    @Field(() => String, {nullable: true})
     clientSecretHash: string
 
-    @Column({nullable: true})
-    @Field({nullable: true})
+    @Column({type: "varchar", length: 420, nullable: true})
+    @Field(() => String, {nullable: true})
     clientSecret: string
 // ----------------------- AUTENTICACIÓN -----------------------
-    @Column({nullable: true})
-    @Field({nullable: true})
+    @Column({type: "varchar", length: 420, nullable: true})
+    @Field(() => String, {nullable: true})
     symmetricKey: string
 }

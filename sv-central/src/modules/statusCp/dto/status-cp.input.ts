@@ -1,10 +1,9 @@
 
 import { Field, InputType, PartialType } from "@nestjs/graphql";
 import { IsBoolean, IsNumber, IsString, IsUUID, Min } from "class-validator";
-import { CreateCpInput } from "./create-cp.input";
 
 @InputType()
-export class StatusCpInput extends PartialType(CreateCpInput) {
+export class StatusCpInput {
    
     @Field()
     @IsUUID()

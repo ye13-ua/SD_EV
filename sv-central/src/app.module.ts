@@ -6,6 +6,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatusCpModule } from './modules/statusCp/statuscp.module';
 import { AlertModule } from './modules/alert/alert.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { LogModule } from './modules/log/log.module';
+import { CommandModule } from './modules/command/command.module';
 
 @Module({
   imports: [
@@ -28,7 +30,9 @@ import { ScheduleModule } from '@nestjs/schedule';
   CpModule, 
   AlertModule,
   StatusCpModule,
-  ScheduleModule.forRoot()
+  ScheduleModule.forRoot(),
+  LogModule,
+  CommandModule
   ],
 })
 export class AppModule {}

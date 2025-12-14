@@ -13,7 +13,7 @@ export class StatusCP {
     @Field({nullable: true})
     isChanged: boolean
 
-    @Field({nullable: true})
+    @Field(() => Number, {nullable: true})
     timeStamp: number;
 
     @Field({nullable: true})
