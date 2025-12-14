@@ -11,7 +11,7 @@ export class StatusCpService {
 	//---------------------------- CREATE ----------------------------
 
 	updateStatus(statusCpInput: StatusCpInput): boolean {
-		this.activeCPs.set(statusCpInput.id, {...statusCpInput});
+		this.activeCPs.set(statusCpInput.id, {...statusCpInput, timeStamp: Date.now()});
 		return true
 	}
 
@@ -23,7 +23,7 @@ export class StatusCpService {
 	@Interval(10_000)
 	updateAllStatusCP(): void {
 		[...this.activeCPs.values()].forEach((cp) => {
-			if((Date.now() - cp.timeStamp) > 15_000) this.activeCPs.delete(cp.id)
+			if((Date.now() - cp.timeStamp) > 10_000) this.activeCPs.delete(cp.id)
 		})
 	}
 

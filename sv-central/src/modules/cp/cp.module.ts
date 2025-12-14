@@ -7,6 +7,6 @@ import { CP } from './entities/cp.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([CP])],
   providers: [CpService, CpResolver],
-  exports: [CpResolver]
+  exports: [CpResolver, CpService]
 })
 export class CpModule {}

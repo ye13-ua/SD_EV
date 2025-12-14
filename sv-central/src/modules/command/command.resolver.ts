@@ -1,35 +1,15 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { CommandService } from './command.service';
 import { Command } from './entities/command.entity';
-import { CreateCommandInput } from './dto/create-command.input';
-import { UpdateCommandInput } from './dto/update-command.input';
+import { CommandInput } from './dto/create-command.input';
 
 @Resolver(() => Command)
 export class CommandResolver {
   constructor(private readonly commandService: CommandService) {}
 
-  @Mutation(() => Command)
-  createCommand(@Args('createCommandInput') createCommandInput: CreateCommandInput) {
-    return this.commandService.create(createCommandInput);
+  @Mutation(() => Boolean, {name: "postCommand", description: "Aqui se envian los comandos y se procesan"})
+  postCommand(@Args('commandInput') commandInput: CommandInput): Promise<Boolean> {
+    return this.commandService.postCommand(commandInput);
   }
 
-  @Query(() => [Command], { name: 'command' })
-  findAll() {
-    return this.commandService.findAll();
-  }
-
-  @Query(() => Command, { name: 'command' })
-  findOne(@Args('id', { type: () => Int }) id: number) {
-    return this.commandService.findOne(id);
-  }
-
-  @Mutation(() => Command)
-  updateCommand(@Args('updateCommandInput') updateCommandInput: UpdateCommandInput) {
-    return this.commandService.update(updateCommandInput.id, updateCommandInput);
-  }
-
-  @Mutation(() => Command)
-  removeCommand(@Args('id', { type: () => Int }) id: number) {
-    return this.commandService.remove(id);
-  }
 }

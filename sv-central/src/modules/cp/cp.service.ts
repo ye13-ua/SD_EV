@@ -27,6 +27,11 @@ export class CpService {
 		return savedCP;
 	}
 
+	async registerCP(createCpInput: CreateCpInput): Promise<CP> {
+		//TODO
+		return new CP()
+	}
+
 	//---------------------------- READ ----------------------------
 	async findAll(): Promise<CP[]> {
 		return this.cpRepository.find()
