@@ -26,8 +26,6 @@ LOG_PATH = os.getenv("CP_LOG_PATH", "/app/cp.log")
 logger = logging.getLogger("CP_MONITOR")
 logger.setLevel(logging.INFO)
 
-
-
 formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
@@ -375,6 +373,7 @@ def send_charging_petition_to_central(driver_id, target_charge):
         logger.info(f"Charging petition sent: driver={driver_id}, target={target_charge} kWh")
     except Exception as e:
         logger.error(f"Failed to send charging petition: {e}")
+
 def simulate_monitor_down(t):
     global MONITOR_DOWN
     MONITOR_DOWN = True

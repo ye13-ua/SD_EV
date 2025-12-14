@@ -9,6 +9,7 @@ from weather_flask import run_flask
 
 from weather_state import CITY_STATE, MIN_TEMP
 
+# STFU Flask
 import logging
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
