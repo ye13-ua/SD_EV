@@ -174,12 +174,18 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
             
             print(f"[Driver] Lista de puntos disponibles ({len(available_cps)}):")
             for cp in available_cps:
-                cp_id = cp.get("ID_UUID")
-                cp_alias = cp.get("Ubicacion")
-                cp_location = cp.get("UbicacionLarga")
-                cp_precio = cp.get("Precio_KWH")
-                cp_state = cp.get("Estado")
-                print(f"ID: {cp_id} | Estado: {cp_state} | Precio: {cp_precio} €/kWh | Ubicación: {cp_location} | Alias: {cp_alias}")
+                cp_id = cp.get("id")
+                ciudad = cp.get("ciudad", "N/A")
+                calle = cp.get("calle", "N/A")
+                cp_precio = cp.get("precio_kwh")
+                cp_state = cp.get("estado", "UNKNOWN")
+
+                ubicacion_larga = f"{calle}, {ciudad}"
+                print(
+                    f"ID: {cp_id} | Estado: {cp_state} | "
+                    f"Precio: {cp_precio} €/kWh | "
+                    f"Ubicación: {ubicacion_larga}"
+                )
         elif action == "DISCONNECT":
             disconnect_vehicle(producer, driver_info, data.get("cp_id"))
         elif action == "CONNECTION_LOGS":
@@ -221,7 +227,9 @@ TEMPLATE = """
       <hr>
       <b>CPs activos:</b><br>
       {% for cp in cps %}
-        - {{ cp['ID_UUID'] }} | {{ cp['Ubicacion'] }} | {{ cp['Precio_KWH'] }} €/kWh | {{ cp['UbicacionLarga'] }}<br>
+        - {{ cp['id'] }} |
+          {{ cp['calle'] }}, {{ cp['ciudad'] }} |
+          {{ cp['precio_kwh'] }} €/kWh
       {% endfor %}
     {% endif %}
     <hr>
