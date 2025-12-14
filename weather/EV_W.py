@@ -4,10 +4,14 @@ import os
 import requests
 import math
 
+import threading
+from weather_flask import run_flask
+
+from weather_state import CITY_STATE, MIN_TEMP
+
 VERBOSE = True
 
 TIMEOUT = 4
-MIN_TEMP = 0
 
 LOG_FILE = os.getenv("LOG_FILE","")
 
@@ -15,8 +19,6 @@ OPENWEATHER_URL = os.getenv("OPENWEATHER_URL","")
 OPENWEATHER_API = os.getenv("OPENWEATHER_API","")
 
 CENTRAL_GRAPHQL = os.getenv("CENTRAL_GRAPHQL", "")
-
-CITY_STATE = {}
 
 def print_log(msg):
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -164,6 +166,9 @@ def main():
         print_log("FATAL: OPENWEATHER_URL/OPENWEATHER_API not set.")
         return
     
+    threading.Thread(target=run_flask, daemon=True).start()
+    print_log("Weather GUI started")
+
     cycle = 0
     while True:
         cycle += 1
