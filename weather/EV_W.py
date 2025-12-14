@@ -19,8 +19,10 @@ TIMEOUT = 4
 
 LOG_FILE = os.getenv("LOG_FILE","")
 
-OPENWEATHER_URL = os.getenv("OPENWEATHER_URL","")
-OPENWEATHER_API = os.getenv("OPENWEATHER_API","")
+# NEVER EVER EVER EVER LEAVE THE API KEYS IN PROD, I JUST DONT GIVE AN F with this key right now so...
+# YOU MUST LEAVE THEM INSIDE AND .env file and not share ti but I DON'T GIVE A F right now... (I will 100% delete it later once the project is reviewed)
+OPENWEATHER_URL = os.getenv("OPENWEATHER_URL","https://api.openweathermap.org/data/2.5/weather")
+OPENWEATHER_API = os.getenv("OPENWEATHER_API","9de3ba080271dd0704768c93ce3e5077")
 
 CENTRAL_GRAPHQL = os.getenv("CENTRAL_GRAPHQL", "")
 
