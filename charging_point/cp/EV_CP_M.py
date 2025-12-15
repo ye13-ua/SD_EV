@@ -253,6 +253,11 @@ def handle_engine():
             driver_id = reply.get("driver_id",None)
     
             CP_DEFAULT_PRICE = reply.get("price_kwh")
+            new_city = reply.get("city")
+            if new_city and new_city != CP_LOCATION.split(",")[-1].strip():
+                calle = CP_LOCATION.split(",")[0]
+                CP_LOCATION = f"{calle}, {new_city}"
+                logger.info(f"City updated from Engine: {new_city}")
             last_ping = time.strftime("%H:%M:%S")
             engine_status = status
 
