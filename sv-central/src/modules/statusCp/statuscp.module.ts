@@ -5,7 +5,7 @@ import { StatusCpResolver } from './statuscp.resolver';
 
 @Module({
   providers: [StatusCpService, StatusCpResolver],
-  exports: [StatusCpResolver],
+  exports: [StatusCpService],
 
 })
 export class StatusCpModule {}

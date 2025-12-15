@@ -1,18 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { CommandInput } from './dto/create-command.input';
 import { CpService } from '../cp/cp.service';
+import { ProducerService } from '../kafka/kafka.service';
+import { CentralCpInput } from '../kafka/dto/central-cp-kafka.input';
 
 @Injectable()
 export class CommandService {
-  constructor(private readonly cpService: CpService){}
+  constructor(
+    private readonly cpService: CpService,
+    private readonly producerService: ProducerService
+  ){}
+
   async postCommand(commandInput: CommandInput): Promise<Boolean> {
 
     switch(commandInput.command){
       case "CHARGING_PETITION":
         return this.chargingPetition(commandInput);
       break;
-      case "UPDATE":
-        return this.updateCp(commandInput);
+      case "UPDATE_PRICE":
+        return this.updatePriceCp(commandInput);
+      break;
+      case "UPDATE_CITY":
+        return this.updateCityCp(commandInput);
       break;
       default:
         return false
@@ -21,21 +30,48 @@ export class CommandService {
   
   //------------------------ CP FUNCIONALIDADES ------------------------
   chargingPetition(commandInput: CommandInput): boolean {
-    //TODO
+    //TODO enviar a cp la petición de carga por kafka
     return true
   }
 
   //------------------------ FRONT FUNCIONALIDADES ------------------------
 
-  updateCp(commandInput: CommandInput): boolean {
-    if (commandInput.newCity)
-      this.cpService.update({id: commandInput.cpId, ciudad: commandInput.newCity})
+  async updatePriceCp(commandInput: CommandInput): Promise<boolean> {
     
-    if (commandInput.newPrice)
-      this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice})
-    //TODO POST TO KAFKA
+    const modCP = await this.cpService.findOne(commandInput.cpId)
     
-    return true
+    if (modCP){
+      
+      const kafkaInput: CentralCpInput = {
+        action: "UPDATE_PRICE",
+        target: "ONE",
+        cpId: commandInput.cpId,
+        newPrice: commandInput.newPrice,
+      }
+
+      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice})
+      return await this.producerService.kafkaEmitToCP(kafkaInput)
+    }
+    return false
+  }
+
+  async updateCityCp(commandInput: CommandInput): Promise<boolean> {
+    
+    const modCP = await this.cpService.findOne(commandInput.cpId)
+    
+    if (modCP){
+      
+      const kafkaInput: CentralCpInput = {
+        action: "UPDATE_PRICE",
+        target: "ONE",
+        cpId: commandInput.cpId,
+        newCity: commandInput.newCity,
+      }
+
+      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice})
+      return await this.producerService.kafkaEmitToCP(kafkaInput)
+    }
+    return false
   }
   
 }

@@ -2,6 +2,8 @@
 import { Field, InputType, PartialType } from "@nestjs/graphql";
 import { IsBoolean, IsNumber, IsString, IsUUID, Min } from "class-validator";
 
+type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING"
+
 @InputType()
 export class StatusCpInput {
    
@@ -12,7 +14,7 @@ export class StatusCpInput {
     // ACTIVE - WAITING - OUT_OF_SERVICE - CHARGING_CENTRAL - BROKEN - DISCONNECTED |!| FINISHED_CHARGING
     @Field({nullable: true})     
     @IsString()
-    estado: string
+    estado: CPType
 
     @Field({nullable: true})
     @IsBoolean()

@@ -16,10 +16,21 @@ export class StatusCpService {
 	}
 
 	readAllStatusCP(): StatusCP[] {
+		this.updateAllStatusCP();
 		return [...this.activeCPs.values()]
 	}
 
+	readAllActiveStatusCP(): StatusCP[] {
+		this.updateAllStatusCP();
+		return [...this.activeCPs.values()].filter((cp) => {
+			cp.estado === "ACTIVE"
+		})
+	}
+
 	//---------------------------- DELETE ----------------------------
+	/**
+	 * Elimina todos los cps de los activos a todos los que no hayan hayan actualizado su estado en los ulitmos 10 segundos
+	 */
 	@Interval(10_000)
 	updateAllStatusCP(): void {
 		[...this.activeCPs.values()].forEach((cp) => {

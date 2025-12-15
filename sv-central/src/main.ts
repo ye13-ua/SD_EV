@@ -2,9 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as fs from "node:fs"
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { ConfigService } from '@nestjs/config';
-
-
 
 async function bootstrap() {
   
@@ -16,16 +13,14 @@ async function bootstrap() {
         cert: fs.readFileSync("../certs/registry.crt"),
   },});
   
-  const configService = app.get(ConfigService);
-
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.KAFKA,
     options: {
       client: {
-        brokers: [configService.get<string>("KAFKA_BROKER", "kafka:9092")]
+        brokers: [process.env.KAFKA_BROKER ?? "localhost:9092"]
       },
       consumer: {
-        groupId: configService.get<string>("KAFKA_GROUPID", "commands-service")
+        groupId: process.env.KAFKA_GROUPID ?? "commands-service"
       }
     }
   })

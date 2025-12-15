@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ProducerService } from './kafka.service';
 import { KafkaController } from './kafka.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { StatusCpModule } from '../statusCp/statuscp.module';
+import { CpModule } from '../cp/cp.module';
 
 
 
@@ -13,16 +15,16 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
       transport: Transport.KAFKA,
       options: {
         client: {
-          brokers: [process.env.KAFKA_BROKER ?? "kafka:9092"]
+          brokers: [process.env.KAFKA_BROKER ?? "localhost:9092"]
         },
         consumer: {
           groupId: process.env.KAFKA_GROUPID ?? "commands-service"
         }
       },
     }
-  ])],
+  ]), StatusCpModule, CpModule],
   controllers: [KafkaController],
   providers: [ProducerService],
-  exports: [ProducerService, KafkaController]
+  exports: [ProducerService]
 })
 export class KafkaModule {}
