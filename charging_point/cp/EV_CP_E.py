@@ -144,11 +144,19 @@ def listen_central_commands():
         for message in consumer:
             # Retrieve the targer value
             cmd = message.value
-            target = cmd.get("target")
+            target = str(cmd.get("target", "")).upper()
+
             # If we are a/the target we react accordingly
-            if str(target).upper() in (str(CP_ID).upper(), "ALL"):
-                print(f"[Engine] Received command from Central: {cmd}")
+            if target == "ALL":
                 handle_central_command(cmd)
+            elif target == "ONE":
+                cp_id = cmd.get("cpId")
+                if cp_id and str(cp_id) == str(CP_ID):
+                    handle_central_command(cmd)
+                else:
+                    return # we ignore the call
+            else:
+                print(f"[Engine] Invalid target field: {target}")
     except Exception as e:
         print(f"[Engine] Kafka-Central consumer error: {e}")
 
@@ -178,10 +186,10 @@ def handle_central_command(cmd):
     elif action == "CHARGE":
         with state_lock:
             PENDING_LOCAL_REQ = False
-
             CP_CAR_IS_CONNECTED = True
-            CP_DRIVER_ID = cmd.get("driver_id").upper()
-            CP_TARGET_CHARGE = cmd.get("target_charge")
+
+            CP_DRIVER_ID = str(cmd.get("driverId")).upper()
+            CP_TARGET_CHARGE = float(cmd.get("target_charge", 0))
         simulate_app_use()
         CP_CAR_IS_CONNECTED = False
         CP_DRIVER_ID = None
