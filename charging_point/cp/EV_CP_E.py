@@ -154,7 +154,7 @@ def listen_central_commands():
                 if cp_id and str(cp_id) == str(CP_ID):
                     handle_central_command(cmd)
                 else:
-                    return # we ignore the call
+                    continue # we ignore the call
             else:
                 print(f"[Engine] Invalid target field: {target}")
     except Exception as e:
