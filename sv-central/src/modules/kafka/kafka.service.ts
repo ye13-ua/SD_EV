@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
-import { KafkaTopics } from './kafka.topìcs';
+import { KafkaTopics } from './kafka.topics';
 import { lastValueFrom } from 'rxjs';
 import { CentralCpInput } from './dto/central-cp-kafka.input';
 import { CentralDriverInput } from './dto/central-driver-kafka.input';

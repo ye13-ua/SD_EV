@@ -10,18 +10,18 @@ export class CommandInput {
   cpId: string
 
   @Field(() => String, {nullable: true})
-  targetId: string
+  target: "ONE" | "ALL"
 
   @Field(() => String, {nullable: true})
-  driverId: string
+  driverId?: string
 
   @Field(() => Float, {nullable: true})
-  targetCharge: number
+  targetCharge?: number
 
   @Field(() => Float, {nullable: true})
-  newPrice: number
+  newPrice?: number
 
   @Field(() => String, {nullable: true})
-  newCity: string
+  newCity?: string
 
 }

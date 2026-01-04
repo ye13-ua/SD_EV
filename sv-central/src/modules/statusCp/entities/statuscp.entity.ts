@@ -39,4 +39,7 @@ export class StatusCP {
     @Field({nullable: true})
     price: number
     
+    @Field({nullable: true})
+    city: string
+
 }

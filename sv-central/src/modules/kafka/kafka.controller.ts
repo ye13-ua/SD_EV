@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { ProducerService } from './kafka.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { KafkaTopics } from './kafka.topìcs';
+import { KafkaTopics } from './kafka.topics';
 import { DriverCentralInput } from './dto/driver-central-kafka.input';
 import { StatusCpService } from '../statusCp/statuscp.service';
 import { CentralDriverInput } from './dto/central-driver-kafka.input';
@@ -28,9 +28,7 @@ export class KafkaController {
       case "DISCONNECT":
         return this.disconnectAction(payload)
       break;
-      case "REGISTER":
-        return this.registerAction(payload)
-      break;
+
       default:
         console.error("Wrong action");
     }
@@ -117,10 +115,7 @@ export class KafkaController {
     )
   }
 
-  async registerAction(payload: DriverCentralInput): Promise<boolean>{
-    
-    return true; 
-  }
+
 
 }
 

@@ -14,6 +14,15 @@ export class CommandService {
   async postCommand(commandInput: CommandInput): Promise<Boolean> {
 
     switch(commandInput.command){
+      case "STOP":
+        return this.stopPettiton(commandInput);
+        break;
+      case "BROKEN":
+        return this.brokenPetition(commandInput);
+        break;
+      case "START":
+        return this.startPetition(commandInput);
+        break;
       case "CHARGING_PETITION":
         return this.chargingPetition(commandInput);
       break;
@@ -29,6 +38,33 @@ export class CommandService {
   }
   
   //------------------------ CP FUNCIONALIDADES ------------------------
+  stopPettiton(commandInput: CommandInput): boolean {
+    this.producerService.kafkaEmitToCP({
+				cpId: commandInput.cpId,
+				target: "ONE",
+				action: "STOP",
+    });
+    return true
+  }
+  
+  brokenPetition(commandInput: CommandInput): boolean {
+    this.producerService.kafkaEmitToCP({
+      cpId: commandInput.cpId,
+      target: "ONE",
+      action: "BROKEN",
+    });
+    return true
+  }
+  startPetition(commandInput: CommandInput): boolean {
+    this.producerService.kafkaEmitToCP({
+      cpId: commandInput.cpId,
+      target: "ONE",
+      action: "START",
+    });
+    return true
+  }
+  
+  
   chargingPetition(commandInput: CommandInput): boolean {
     //TODO enviar a cp la petición de carga por kafka
     return true

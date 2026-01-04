@@ -4,6 +4,8 @@ import { StatusCP } from './entities/statuscp.entity';
 import { Interval } from '@nestjs/schedule';
 import { CpService } from '../cp/cp.service';
 import { createDecipheriv } from 'crypto';
+import { AlertService } from '../alert/alert.service';
+import { CommandService } from '../command/command.service';
 
 
 type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING" | "CHANGED_LOCATION"
@@ -13,9 +15,13 @@ export class StatusCpService {
 	
 
 
-	constructor(private readonly cpService: CpService){}
+	constructor(private readonly cpService: CpService, 
+		private readonly alertService: AlertService,
+		private readonly commandService: CommandService
+	){}
 
-	private activeCPs = new Map<string, StatusCP>
+	
+	private activeCPs = new Map<string, StatusCP>();
 
 	decryptJson<StatusCP>( payload: { iv: string; ciphertext: string; tag: string }, keyHex: string,): StatusCP 
 	{
@@ -82,7 +88,7 @@ export class StatusCpService {
 	readAllActiveStatusCP(): StatusCP[] {
 		this.updateAllStatusCP();
 		return [...this.activeCPs.values()].filter((cp) => {
-			cp.estado === "ACTIVE"
+			return cp.estado === "ACTIVE"
 		})
 	}
 
@@ -92,9 +98,41 @@ export class StatusCpService {
 	 */
 	@Interval(10_000)
 	updateAllStatusCP(): void {
-		[...this.activeCPs.values()].forEach((cp) => {
-			if((Date.now() - cp.timeStamp) > 10_000) this.activeCPs.delete(cp.id)
-		})
+    const before = this.activeCPs.size;
+    [...this.activeCPs.values()].forEach((cp) => {
+			if((Date.now() - cp.timeStamp) > 10_000) {
+				console.log(`[StatusCP] Removing inactive CP: ${cp.id}`);
+				this.activeCPs.delete(cp.id);
+			}
+    	});
+    	const removed = before - this.activeCPs.size;
+    	if(removed > 0) console.log(`[StatusCP] Cleaned ${removed} inactive CPs`);
 	}
 
+	//---------------------------- HELPERS ----------------------------
+	@Interval(10_000)
+    checkAlertCps(): void {
+        const cities = this.alertService.findAll().map(alert => alert.ciudad);
+        
+        // Flatten: convierte array de arrays en array plano
+        const cpsinAlert = cities.flatMap((city) => {
+            return [...this.activeCPs.values()]
+                .filter(cp => cp.city === city)
+                .filter(cp => cp.estado === "ACTIVE");
+        });
+
+
+        if (cpsinAlert.length > 0) {
+            console.log(`[AlertCP] Found ${cpsinAlert.length} active CPs in alert cities`);
+            cpsinAlert.forEach(cp => {
+                console.log(`  - CP ${cp.id} in city ${cp.city} (ALERT: Temperature < 0°C)`);
+				this.commandService.postCommand({
+					command: "STOP",
+					cpId: cp.id,
+					target: "ONE"
+				});
+			});
+        }
+    }
 }
+
