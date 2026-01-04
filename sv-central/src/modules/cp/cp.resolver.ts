@@ -1,20 +1,18 @@
 import { Query, Resolver, Args, Mutation} from '@nestjs/graphql';
 import { CpService } from './cp.service';
 import { CP } from './entities/cp.entity';
-import { CreateCpInput } from './dto/create-cp.input';
+import { RegisterCpInput } from './dto/register-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
+
 @Resolver(() => CP)
 export class CpResolver {
 	constructor(private cpService: CpService) {}
-	//---------------------------- CREATE ----------------------------
-	@Mutation(() => CP, {name: "createCp", description: "Crea un nuevo cp en la base de datos"})
-	createCp(@Args("createCpInput") createCpInput: CreateCpInput): Promise<CP> {
-		return this.cpService.create(createCpInput)
-	}
-	//Ambos tienen la misma funcionalidad xdxd
-	@Mutation(() => CP, {name: "registerCp", description: "Registra el CP en la base de datos"})
-	registerCP(@Args("registerCpInput") registerCpInput: CreateCpInput): Promise<CP> {
-		return this.cpService.create(registerCpInput)
+
+
+	//---------------------------- AUTETICATE ----------------------------
+	@Mutation(() => CP, {name: "auteticateCp", description: "Autetica el CP en la base de datos"})
+	auteticateCp(@Args("registerCpInput") registerCpInput: RegisterCpInput): Promise<CP> {
+		return this.cpService.auteticateCp(registerCpInput)
 	}
 
 	//---------------------------- READ ----------------------------
@@ -27,18 +25,14 @@ export class CpResolver {
 	findOne(@Args("id") id: string): Promise<CP> {
 		return this.cpService.findOne(id);
 	}
-	//---------------------------- UPDATE ----------------------------
+	//---------------------------- UNLINK ----------------------------
+	@Mutation(() => Boolean, { name: "unlinkCp", description: "Desvincula un CP por id" })
+	unlinkCp(@Args("id") id: string): Promise<boolean> {
+		return this.cpService.unlink(id);
+	}
+		//---------------------------- UPDATE ----------------------------
 	@Mutation(() => CP, {name: "updateCp", description: "Actualiza un cp"})
 	updateCp(@Args("updateCpInput") updateCpInput: UpdateCpInput): Promise<CP> {
 		return this.cpService.update(updateCpInput);
 	}
-
-	//---------------------------- DELETE ----------------------------
-	@Mutation(() => Boolean, { name: "deleteCp", description: "Elimina un CP por id" })
-	removeCp(@Args("id") id: string): Promise<boolean> {
-		return this.cpService.remove(id);
-	}
-
-	
-
 }

@@ -10,7 +10,7 @@ export class StatusCpResolver {
 	
 	//---------------------------- UPDATE ----------------------------
 	@Mutation(() => Boolean, { name: "updateStatusCP", description: "Para enviar el estado del cp"})
-	updateStatusCp(@Args("statusCpInput") statusCpInput: StatusCpInput): boolean {
+	updateStatusCp(@Args("statusCpInput") statusCpInput: StatusCpInput): Promise<boolean> {
 		return this.statusCpService.updateStatus(statusCpInput);
 	}
 

@@ -2,34 +2,36 @@ import { Injectable } from '@nestjs/common';
 import { CP } from './entities/cp.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateCpInput } from './dto/create-cp.input';
+import { RegisterCpInput } from './dto/register-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
-import { hash } from "argon2";
-
-
+import { compare } from "bcrypt"
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class CpService {
 	constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){}
 	
-	//---------------------------- CREATE ----------------------------
-	async create(createCpInput: CreateCpInput): Promise<CP> {
+	//---------------------------- AUTETICATE ----------------------------
+	async auteticateCp(registerCpInput: RegisterCpInput): Promise<CP> {
 		
-
-		const clienteSecret = randomBytes(32).toString("hex");
-		const clientSecretHash = await hash(clienteSecret)
-		createCpInput.clientSecretHash = clientSecretHash;
-
-		const savedCP = await this.cpRepository.save(this.cpRepository.create(createCpInput))
+		const dbCp = await this.cpRepository.findOne({where: {id: registerCpInput.id}})
+		//TODO borrar
 		
-		savedCP.clientSecret = clienteSecret;
-		return savedCP;
-	}
+		if (!dbCp){
+			throw new UnauthorizedException('Bad credentials');
+		}
 
-	async registerCP(createCpInput: CreateCpInput): Promise<CP> {
-		//TODO
-		return new CP()
+		const isValid = await compare(registerCpInput.clientSecret, dbCp.clientSecretHash)
+		
+		if (!isValid) {
+			throw new UnauthorizedException('Bad credentials');
+		}
+
+		dbCp.symmetricKey = randomBytes(32).toString("hex");
+		this.cpRepository.save(dbCp)
+		return dbCp
+		
 	}
 
 	//---------------------------- READ ----------------------------
@@ -38,15 +40,32 @@ export class CpService {
 	}
 
 	async findOne(id: string): Promise<CP> {
-		return this.cpRepository.findOneOrFail({where: {id: id}})
+		 
+		const dbCp = await this.cpRepository.findOne({where: {id: id}})
+		
+		if (!dbCp) {
+			throw new BadRequestException("Cp does not exist in the db")
+		}
+
+		return dbCp
+	}
+
+	//---------------------------- UNLINK ----------------------------
+	async unlink(id: string): Promise<boolean> {
+		
+		const dbCp = await this.cpRepository.findOne({where: {id: id}})
+		
+		if (!dbCp) {
+			throw new BadRequestException("Cp does not exist in the db")
+		}
+		
+		dbCp.symmetricKey = ""
+		this.cpRepository.save(dbCp)
+
+		return true
 	}
 	//---------------------------- UPDATE ----------------------------
 	async update(updateCpInput: UpdateCpInput): Promise<CP> {
 		return this.cpRepository.save(updateCpInput)
-	}
-
-	//---------------------------- DELETE ----------------------------
-	async remove(id: string): Promise<boolean> {
-		return (await (this.cpRepository.delete(id))).affected !== 0;
 	}
 }

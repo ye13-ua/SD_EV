@@ -1,6 +1,6 @@
 
 import { Field, InputType, PartialType } from "@nestjs/graphql";
-import { IsBoolean, IsNumber, IsString, IsUUID, Min } from "class-validator";
+import {IsUUID} from "class-validator";
 
 type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING"
 
@@ -11,6 +11,17 @@ export class StatusCpInput {
     @IsUUID()
     id: string
     
+    @Field()
+    iv: string
+
+    @Field()
+    ciphertext: string
+
+    @Field()
+    tag: string
+
+
+    /*
     // ACTIVE - WAITING - OUT_OF_SERVICE - CHARGING_CENTRAL - BROKEN - DISCONNECTED |!| FINISHED_CHARGING
     @Field({nullable: true})     
     @IsString()
@@ -43,5 +54,5 @@ export class StatusCpInput {
     @IsNumber()
     @Min(0)
     price: number
-
+    */
 }

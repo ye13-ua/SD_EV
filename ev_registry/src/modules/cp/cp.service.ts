@@ -5,7 +5,8 @@ import { Repository } from 'typeorm';
 import { CreateCpInput } from './dto/create-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
-import { hash } from "argon2";
+import { hash } from 'bcrypt';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class CpService {
@@ -16,7 +17,9 @@ export class CpService {
 		
 
 		const clienteSecret = randomBytes(32).toString("hex");
-		const clientSecretHash = await hash(clienteSecret)
+
+		const saltRounds = 10
+		const clientSecretHash = await hash(clienteSecret, saltRounds)
 		createCpInput.clientSecretHash = clientSecretHash;
 
 			
@@ -32,7 +35,13 @@ export class CpService {
 	}
 
 	async findOne(id: string): Promise<CP> {
-		return this.cpRepository.findOneOrFail({where: {id: id}})
+		const dbCp = await this.cpRepository.findOne({where: {id: id}})
+		
+		if (!dbCp) {
+			throw new BadRequestException("Cp does not exist in the db")
+		}
+
+		return dbCp
 	}
 	//---------------------------- UPDATE ----------------------------
 	async update(updateCpInput: UpdateCpInput): Promise<CP> {
