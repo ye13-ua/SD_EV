@@ -14,15 +14,51 @@
 #                                                                                                               #
 #################################################################################################################
 
+################################
+# Logging functuionality, SKIP #
+################################
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+
+LOG_PATH = os.getenv("CP_LOG_PATH", "/app/cp.log")
+
+logger = logging.getLogger("CP_MONITOR")
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+file_handler = RotatingFileHandler(
+    LOG_PATH,
+    maxBytes=5 * 1024 * 1024,  # 5 MB
+    backupCount=3
+)
+file_handler.setFormatter(formatter)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+if not logger.handlers:
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+# STFU Flask
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+##############################
+# THE CHARGING POINT'S LOGIC #
+##############################
+
 # Default libs
 import socket
 import time
 import json
-import os
 import uuid
 import random
 import threading
-import socketio
+import requests
 from flask import Flask, render_template_string, jsonify
 
 # Config
@@ -37,20 +73,29 @@ PING_INTERVAL = 2
 
 MONITOR_DOWN = False
 
+CITY_LIST = ['Alicante',
+             'Valencia',
+             'Zaragoza',
+             'Madrid',
+             'Barcelona',
+             'Ulaanbaatar',
+             'Yakutsk',
+             'Tomsk',
+             'Norilsk',
+             'Oymyakon']
+
+REGISTRY_GRAPHQL = os.getenv("REGISTRY_GRAPHQL", "https://central:4001/graphql")
+
+CP_SECRET_PATH = "/app/cp_secret.json"
+
+CLIENT_SECRET = None
+
+SYMMETRIC_KEY = None
+
 CP_STATUS_CHANGED = False
 already_charged = 0.0
 target_kwh = 0.0
 driver_id = None
-
-sio = socketio.Client()
-
-@sio.event
-def connect():
-    print("[Monitor] Connected to Central via Socket.IO")
-
-@sio.event
-def disconnect():
-    print("[Monitor] Disconnected from Central")
 
 def generate_alias(uuid_str, ciudad):
     prefix = uuid_str.split('-')[0].upper()  # primeros 8 chars del UUID
@@ -76,7 +121,7 @@ def load_or_create_cp_data():
     # Generate a new UUID
     new_id = str(uuid.uuid4())
     calle = random.choice(['Sol','Luna','Mar','Paz','Río'])
-    ciudad = random.choice(['Alicante','Valencia','Zaragoza','Madrid','Barcelona'])
+    ciudad = random.choice(CITY_LIST)
     location = f"Calle {calle}, {ciudad}"
     alias = generate_alias(new_id, ciudad)
     data = {"id": new_id, "alias":alias, "location":location}
@@ -99,6 +144,49 @@ kafka_ok = False
 last_ping = "---"
 last_central_contact = "---"
 car_status = False
+
+# We load the secret we recieved from registry unit
+def load_cp_secrets():
+    global CLIENT_SECRET, SYMMETRIC_KEY
+    if os.path.exists(CP_SECRET_PATH):
+        with open(CP_SECRET_PATH, "r") as f:
+            data = json.load(f)
+            CLIENT_SECRET = data.get("clientSecret")
+            SYMMETRIC_KEY = data.get("symmetricKey")
+
+def save_cp_secrets(client_secret, symmetric_key):
+    with open(CP_SECRET_PATH, "w") as f:
+        json.dump(
+            {
+                "clientSecret": client_secret,
+                "symmetricKey": symmetric_key
+            }
+        , f)
+
+# GQL post function used to update/relay the status in Central
+def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5):
+    if not CLIENT_SECRET:
+        raise RuntimeError("CLIENT_SECRET missing!")
+    
+    payload = {"query": query}
+    if variables:
+        payload["variables"] = variables
+
+    headers = {"Authorization": f"Bearer {CLIENT_SECRET}"}
+
+    resp = requests.post(
+        CENTRAL_HOST + "/graphql",
+        json=payload,
+        headers=headers,
+        timeout=timeout
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    if "errors" in data:
+        raise RuntimeError(data["errors"])
+    
+    return data.get("data")
 
 # Ping engine for connection checkup
 def ping_engine(action):
@@ -129,14 +217,22 @@ def handle_engine():
     while True:
 
         while MONITOR_DOWN:
-            print(f"[Monitor] Simulating MONITOR_DOWN")
+            logger.warning("Simulating MONITOR_DOWN")
             time.sleep(PING_INTERVAL)
             
 
         reply = ping_engine("PING")
         if not reply:
+            logger.error("Engine unreachable — marking CP as BROKEN")
+
             status = "BROKEN"
             kafka_ok = False
+
+            # Set the rest as None | Hard reset
+            driver_id = None
+            already_charged = 0.0
+            target_kwh = 0.0
+            car_status = False
         else:
             status = reply.get("status")
 
@@ -157,6 +253,11 @@ def handle_engine():
             driver_id = reply.get("driver_id",None)
     
             CP_DEFAULT_PRICE = reply.get("price_kwh")
+            new_city = reply.get("city")
+            if new_city and new_city != CP_LOCATION.split(",")[-1].strip():
+                calle = CP_LOCATION.split(",")[0]
+                CP_LOCATION = f"{calle}, {new_city}"
+                logger.info(f"City updated from Engine: {new_city}")
             last_ping = time.strftime("%H:%M:%S")
             engine_status = status
 
@@ -164,6 +265,12 @@ def handle_engine():
 
         CP_STATUS_CHANGED = current_report != last_report
         last_report = current_report
+
+        if CP_STATUS_CHANGED:
+            logger.info(
+                f"Status changed: status={status}, kafka={kafka_ok}, driver={driver_id}"
+            )
+
         try:
             send_status_to_central(status, kafka_ok)
         except Exception as e:
@@ -171,45 +278,114 @@ def handle_engine():
         
         time.sleep(PING_INTERVAL)
 
-# Registers the CP with the Central and Central's BD
-def register_CP_in_central():
-    msg = {"ID_UUID": CP_ID,
-           "Ubicacion": CP_ALIAS,
-           "UbicacionLarga": CP_LOCATION,
-           "Precio_KWH": CP_DEFAULT_PRICE,
-           "Timestamp": time.strftime("%H:%M:%S")}
-    sio.emit("CP_Central_Create_Socket", msg)
+# Replacement for register_CP_in_central
+def register_cp_in_registry():
+    global CLIENT_SECRET, SYMMETRIC_KEY # we need them now
+
+    if CLIENT_SECRET: # we don't apply if we managed to load the secret
+        print(f"[{CP_ALIAS}] CP already is registered (secret loaded)")
+        return
+
+    ciudad = CP_LOCATION.split(",")[-1].strip()
+    calle = CP_LOCATION.split(",")[0].replace("Calle", "").strip()
+
+    # The mutation request
+    mutation = """
+    mutation CreateCp($input: CreateCpInput!) {
+        createCp(createCpInput: $input) {
+            id
+            clientSecret
+            symmetricKey
+        }
+    }
+    """
+    variables = {
+        "input": {
+            "id": CP_ID,
+            "ciudad": ciudad,
+            "calle": calle,
+            "precio_kwh": CP_DEFAULT_PRICE
+        }
+    }
+
+    resp = requests.post(
+        REGISTRY_GRAPHQL,
+        json={"query": mutation, "variables": variables},
+        timeout=5,
+    )
+    resp.raise_for_status()
+
+    data = resp.json()
+    if "errors" in data:
+        raise RuntimeError(data["errors"])
+    
+    result = data["data"]["createCp"]
+
+    CLIENT_SECRET = result["clientSecret"]
+    SYMMETRIC_KEY = result.get("symmetricKey")
+
+    save_cp_secrets(CLIENT_SECRET, SYMMETRIC_KEY)
+
+    logger.info("CP successfully registered in registry")
 
 # Sends, on change, the status of the charging point
+#TODO rework for GQL (ID_UUID is now ID)
 def send_status_to_central(status, kafka_ok):
-    global last_central_contact, already_charged, driver_id
-    msg = {"ID_UUID": CP_ID,
-           "Estado": status,
-           "KafkaOk": kafka_ok,
-           "isChanged": CP_STATUS_CHANGED,
-           "alreadyCharged": already_charged,
-           "DriverID": driver_id,
-           "Timestamp": time.strftime("%H:%M:%S")}
-    sio.emit("CP_Central_Status_Socket", msg)
-    last_central_contact = time.strftime("%H:%M:%S")
+    global last_central_contact, already_charged, driver_id, CP_DEFAULT_PRICE
+
+    mutation = """
+    mutation UpdateStatusCP($input: StatusCpInput!) {
+        updateStatusCP(statusCpInput: $input)
+    }
+    """
+    input_obj = {
+        "id": CP_ID,
+        "estado": status,
+        "isChanged": CP_STATUS_CHANGED,
+        "kafkaOK": kafka_ok,
+        "alreadyCharged": already_charged,
+        "price": CP_DEFAULT_PRICE
+    }
+    if driver_id is not None:
+        input_obj["driverId"] = driver_id
+
+    variables = {"input": input_obj}
+
+    try:
+        gql_post_central(mutation, variables=variables)
+        last_central_contact = time.strftime("%H:%M:%S")
+    except Exception as e:
+        logger.error(f"Failed to update status in Central: {e}")
 
 #
 def send_charging_petition_to_central(driver_id, target_charge):
-    msg = {
-        "ID_UUID": CP_ID,
-        "DriverID": driver_id,
-        "TargetCharge": target_charge,
-        "Timestamp": time.strftime("%H:%M:%S")
+    mutation = """
+    mutation PostCommand($input: CommandInput!) {
+            postCommand(commandInput: $input)
+        }
+    """
+    variables = {
+        "input": {
+            "command": "CHARGING_PETTITION",
+            "cpId": CP_ID,
+            "driverId": driver_id,
+            "targetCharge": target_charge
+        }
     }
-    sio.emit("CP_Central_RequestCharge_Socket", msg)
+
+    try:
+        gql_post_central(mutation, variables=variables)
+        logger.info(f"Charging petition sent: driver={driver_id}, target={target_charge} kWh")
+    except Exception as e:
+        logger.error(f"Failed to send charging petition: {e}")
 
 def simulate_monitor_down(t):
     global MONITOR_DOWN
     MONITOR_DOWN = True
-    print(f"[Monitor] Simulating monitor down for {t} seconds")
+    logger.warning(f"Simulating MONITOR_DOWN for {t} seconds")
     time.sleep(t)
     MONITOR_DOWN = False
-    print("[Monitor] Monitor recovered")
+    logger.info("Monitor recovered")
 
 app = Flask(__name__)
 
@@ -340,31 +516,33 @@ def trigger_engine_down():
 
 # Checks the status of the engine each 5 seconds, and reports changes to Central
 def main():
-    print(f"[{CP_ALIAS}] Monitor initiated")
+    logger.info(f"Monitor initiated for {CP_ALIAS}")
     # Assumption that there's one monitor for each engine (ref. UML)
-    print(f"    Engine: {ENGINE_HOST}:{ENGINE_PORT}")
-    print(f"    Central: {CENTRAL_HOST}")
-    
-    try:
-        sio.connect(CENTRAL_HOST)
-        print(f"[{CP_ALIAS}] Conectado al {CENTRAL_HOST}")
-    except Exception as e:
-        print(f"[{CP_ALIAS}] No se pudo conectar con Central ({CENTRAL_HOST}): {e}")
-        print(f"[{CP_ALIAS}] Continuando simulación sin Central...")
+    logger.info(f"Engine: {ENGINE_HOST}:{ENGINE_PORT}")
+    logger.info(f"Registry: {REGISTRY_GRAPHQL}")
+
+    # Load CP secret
+    load_cp_secrets()
+
+    if not CLIENT_SECRET:
+        try:
+            register_cp_in_registry()
+        except Exception as e:
+            logger.error(f"Registry registration failed: {e}")
+            logger.critical("Cannot continue without identity")
+            return
 
     # Authenticate the engine connection
-
     for attempt in range(5):
         auth = ping_engine("AUTH")
         if auth and auth.get("status") == "AUTH_SUCCESS":
-            print(f"[{CP_ALIAS}] Engine AUTH success on attempt {attempt+1}")
-            register_CP_in_central()
+            logger.info(f"Engine AUTH success on attempt {attempt+1}")
             break
         else:
-            print(f"[{CP_ALIAS}] Engine AUTH failed, retrying... ({attempt+1}/5)")
+            logger.warning("Engine AUTH failed, retrying")
             time.sleep(1)
     else:
-        print(f"[{CP_ALIAS}] Engine AUTH failed after 5 attempts, continuing without link")
+        logger.error("Engine AUTH failed after 5 attempts, continuing without link")
 
     # Infinitelly check the status each PING_INTERVAL seconds
     threading.Thread(target=handle_engine, daemon=True).start()

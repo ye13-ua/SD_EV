@@ -101,6 +101,9 @@ services:
       - ev_net
     command: npm run start:prod
 
+  # weather_control
+  # include API and ports
+  
   # ----------------------- KAFKA -----------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3

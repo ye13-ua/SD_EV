@@ -303,7 +303,7 @@ kafkaEmitter.on(kafkaEvent, async ({topic, partition, data}) => {
 
             
             const waitingORActiveCPs = ActiveCPs.filter(e => e.Estado === "ACTIVE" || e.Estado === "WAITING");
-            const active = waitingORActiveCPs[Math.floor(Math.random() * valores.length)]
+            const active = waitingORActiveCPs[Math.floor(Math.random() * waitingORActiveCPs.length)]
 
             if(active){
               driverResponse.cp_id = active.ID_UUID;

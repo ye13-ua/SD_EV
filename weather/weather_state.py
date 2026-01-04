@@ -1,0 +1,2 @@
+MIN_TEMP = 0
+CITY_STATE = {}

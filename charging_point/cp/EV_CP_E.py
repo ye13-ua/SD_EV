@@ -15,6 +15,18 @@ import json
 import os
 import threading
 import random
+# TODO repalce print with log
+
+# LOGGING SEGMENT
+import logging
+
+LOG_LEVEL = os.getenv("ENGINE_LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s | %(levelname)s | CP_ENGINE | %(message)s")
+
+logger = logging.getLogger("CP_ENGINE")
+
+# MAIN SEGMENT
 
 # Traffic lights for multithread editing of the states
 from threading import Lock
@@ -38,6 +50,8 @@ CP_CHARGE_PRICE = None
 CP_CAR_IS_CONNECTED = False
 CP_DRIVER_ID = None
 CP_DRIVER_ALIAS = None
+
+CP_CITY = None
 
 _consumer_started = False
 _consumer_lock = Lock()
@@ -75,7 +89,7 @@ def handle_monitor(conn):
             return
 
         if action == "PING":
-            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED, "price_kwh": CP_PRICE}
+            response = {"status": CP_STATUS, "kafka_ok": kafka_ok, "car_connected": CP_CAR_IS_CONNECTED, "price_kwh": CP_PRICE, "city": CP_CITY}
             
             if CP_STATUS == "CHARGING_CENTRAL":
                 response.update({
@@ -144,11 +158,19 @@ def listen_central_commands():
         for message in consumer:
             # Retrieve the targer value
             cmd = message.value
-            target = cmd.get("target")
+            target = str(cmd.get("target", "")).upper()
+
             # If we are a/the target we react accordingly
-            if str(target).upper() in (str(CP_ID).upper(), "ALL"):
-                print(f"[Engine] Received command from Central: {cmd}")
+            if target == "ALL":
                 handle_central_command(cmd)
+            elif target == "ONE":
+                cp_id = cmd.get("cpId")
+                if cp_id and str(cp_id) == str(CP_ID):
+                    handle_central_command(cmd)
+                else:
+                    continue # we ignore the call
+            else:
+                print(f"[Engine] Invalid target field: {target}")
     except Exception as e:
         print(f"[Engine] Kafka-Central consumer error: {e}")
 
@@ -178,15 +200,23 @@ def handle_central_command(cmd):
     elif action == "CHARGE":
         with state_lock:
             PENDING_LOCAL_REQ = False
-
             CP_CAR_IS_CONNECTED = True
-            CP_DRIVER_ID = cmd.get("driver_id").upper()
-            CP_TARGET_CHARGE = cmd.get("target_charge")
+
+            CP_DRIVER_ID = str(cmd.get("driverId")).upper()
+            CP_TARGET_CHARGE = float(cmd.get("target_charge", 0))
         simulate_app_use()
         CP_CAR_IS_CONNECTED = False
         CP_DRIVER_ID = None
     elif action == "UPDATE_PRICE":
-        CP_PRICE = cmd.get("price")
+        CP_PRICE = cmd.get("newPrice")
+    elif action == "UPDATE_CITY":
+        new_city = cmd.get("newCity")
+        if not new_city:
+            logger.warning("UPDATE_CITY recieved without newCity")
+            return
+        with state_lock:
+            CP_CITY = new_city
+        logger.info(f"City updated via Central: {new_city}")
     elif action == "BROKEN":
         with state_lock:
             if CP_STATUS == "CHARGING_CENTRAL":
@@ -277,6 +307,7 @@ def save_current_session():
         "target_kwh": CP_TARGET_CHARGE,
         "price_kwh": CP_PRICE,
         "total_cost": round(CP_CHARGE_PRICE, 3) if CP_CHARGE_PRICE else 0,
+        "city": CP_CITY,
         "timestamp": time.time()
     }
 
@@ -303,6 +334,7 @@ def recover_previous_session():
         CP_CHARGE_PROCESS = session.get("charged_kwh", 0)
         CP_CHARGE_PRICE = session.get("total_cost", 0)
         CP_PRICE = session.get("price_kwh", CP_PRICE)
+        CP_CITY = session.get("city", CP_CITY)
         print(f"[Engine] Recovered previous session: {CP_CHARGE_PROCESS:.1f}/{CP_TARGET_CHARGE} kWh ({CP_CHARGE_PRICE:.2f}€)")
         return True
     except Exception as e:
