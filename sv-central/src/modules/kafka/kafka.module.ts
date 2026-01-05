@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ProducerService } from './kafka.service';
 import { KafkaController } from './kafka.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -22,7 +22,7 @@ import { CpModule } from '../cp/cp.module';
         }
       },
     }
-  ]), StatusCpModule, CpModule],
+  ]), forwardRef(() => StatusCpModule), CpModule],
   controllers: [KafkaController],
   providers: [ProducerService],
   exports: [ProducerService]

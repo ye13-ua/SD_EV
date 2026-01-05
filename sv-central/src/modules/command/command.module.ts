@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CommandService } from './command.service';
 import { CommandResolver } from './command.resolver';
 import { CpModule } from '../cp/cp.module';
@@ -7,6 +7,7 @@ import { StatusCpModule } from '../statusCp/statuscp.module';
 
 @Module({
   providers: [CommandResolver, CommandService],
-  imports: [CpModule, KafkaModule, StatusCpModule]
+  imports: [CpModule, forwardRef(() => KafkaModule), forwardRef(() => StatusCpModule)],
+  exports: [CommandService]
 })
 export class CommandModule {}

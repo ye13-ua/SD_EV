@@ -22,9 +22,6 @@ export class CommandService {
         break;
       case "START":
         return this.startPetition(commandInput);
-        break;
-      case "CHARGING_PETITION":
-        return this.chargingPetition(commandInput);
       break;
       case "UPDATE_PRICE":
         return this.updatePriceCp(commandInput);
@@ -32,13 +29,23 @@ export class CommandService {
       case "UPDATE_CITY":
         return this.updateCityCp(commandInput);
       break;
+      case "UNLINK":
+        return this.unlinkPetition(commandInput);
+      break;
       default:
         return false
     }
   }
   
   //------------------------ CP FUNCIONALIDADES ------------------------
+  unlinkPetition(commandInput: CommandInput): boolean { 
+    //TODO enviar a cp la petición de desvinculación por kafka
+    return true
+  }
+  
+  
   stopPettiton(commandInput: CommandInput): boolean {
+    console.log("Enviando STOP al CP "+commandInput.cpId);
     this.producerService.kafkaEmitToCP({
 				cpId: commandInput.cpId,
 				target: "ONE",
@@ -48,6 +55,7 @@ export class CommandService {
   }
   
   brokenPetition(commandInput: CommandInput): boolean {
+    console.log("Enviando BROKEN al CP "+commandInput.cpId);
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
@@ -56,6 +64,7 @@ export class CommandService {
     return true
   }
   startPetition(commandInput: CommandInput): boolean {
+    console.log("Enviando START al CP "+commandInput.cpId);
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
@@ -64,12 +73,6 @@ export class CommandService {
     return true
   }
   
-  
-  chargingPetition(commandInput: CommandInput): boolean {
-    //TODO enviar a cp la petición de carga por kafka
-    return true
-  }
-
   //------------------------ FRONT FUNCIONALIDADES ------------------------
 
   async updatePriceCp(commandInput: CommandInput): Promise<boolean> {

@@ -13,10 +13,6 @@ export class CP {
     @Field()
     ciudad: string
 
-    @Column()
-    @Field()
-    calle: string
-
     @Column({type: "float"})
     @Field(() => Float)
     precio_kwh: number

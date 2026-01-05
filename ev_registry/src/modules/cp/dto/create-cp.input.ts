@@ -12,11 +12,6 @@ export class CreateCpInput {
     @IsString()
     ciudad: string
     
-    @Field()
-    @Length(3, 60)
-    @IsString()
-    calle: string
-    
     @Field(() => Float)
     @IsNumber()
     @Min(0)

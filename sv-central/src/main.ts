@@ -13,6 +13,14 @@ async function bootstrap() {
         cert: fs.readFileSync("../certs/registry.crt"),
   },});
   
+  // Habilitar CORS
+  app.enableCors({
+    origin: ['http://localhost:5173', 'http://localhost:3000'], // Orígenes permitidos
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+  
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.KAFKA,
     options: {
