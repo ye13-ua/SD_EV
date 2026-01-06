@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import './Cp.css';
+import { GRAPHQL_ENDPOINT } from '../../config/api';
 
 interface CpProps {
   id: string;
@@ -58,7 +59,7 @@ const Cp: React.FC<CpProps> = ({ id, ciudad: ciudadInicial, precio: precioInicia
           }
         `;
 
-        const response = await fetch('https://localhost:4000/graphql', {
+        const response = await fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

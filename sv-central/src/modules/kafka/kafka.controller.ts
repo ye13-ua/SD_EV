@@ -41,7 +41,6 @@ export class KafkaController {
     const cpsPayload: Array<{
       id: string
       ciudad: string
-      calle: string
       precio: number
       estado: string
     }> = []
@@ -51,7 +50,6 @@ export class KafkaController {
       
       cpsPayload[i].id = acp.id;
       cpsPayload[i].ciudad = cp?.ciudad ?? "N/A";
-      cpsPayload[i].calle = cp?.calle ?? "N/A";
       cpsPayload[i].precio = acp.price ?? cp?.precio_kwh ?? -1;
       cpsPayload[i].estado = acp.estado ?? "DESCONOCIDO";
 

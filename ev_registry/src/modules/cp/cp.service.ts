@@ -20,14 +20,28 @@ export class CpService {
 
 		const saltRounds = 10
 		const clientSecretHash = await hash(clienteSecret, saltRounds)
-		createCpInput.clientSecretHash = clientSecretHash;
 
 			
-		const savedCP = await this.cpRepository.save(this.cpRepository.create(createCpInput))
+		const savedCP = await this.cpRepository.save(this.cpRepository.create({...createCpInput, clientSecret: clientSecretHash}))
 		
 		savedCP.clientSecret = clienteSecret;
 		return savedCP;
 	}
+	
+	/*
+	mutation {
+	createCp(
+		createCpInput: {id: "a4aef408-3875-4b8f-a2a6-c4286fe836c1", ciudad: "Madrid", precio_kwh: 12.5}
+	) {
+		id
+		ciudad
+		precio_kwh
+		clientSecret
+		}
+	}
+
+	
+	*/
 
 	//---------------------------- READ ----------------------------
 	async findAll(): Promise<CP[]> {

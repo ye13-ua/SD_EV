@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Cp from './Cp';
 import './CpList.css';
+import { GRAPHQL_ENDPOINT } from '../../config/api';
 
 interface CPFromDB {
   id: string;
@@ -62,12 +63,12 @@ const CpList: React.FC = () => {
 
       // Ejecutar ambas queries
       const [responseCPs, responseStatus] = await Promise.all([
-        fetch('https://localhost:4000/graphql', {
+        fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: queryAllCPs })
         }),
-        fetch('https://localhost:4000/graphql', {
+        fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: queryStatusCPs })

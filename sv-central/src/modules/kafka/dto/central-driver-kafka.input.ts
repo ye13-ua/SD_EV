@@ -6,7 +6,6 @@ export class CentralDriverInput {
     cps?: Array<{
       id: string
       ciudad: string
-      calle: string
       precio: number
       estado: string
     }>

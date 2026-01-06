@@ -10,9 +10,9 @@ export class CpResolver {
 
 
 	//---------------------------- AUTETICATE ----------------------------
-	@Mutation(() => CP, {name: "auteticateCp", description: "Autetica el CP en la base de datos"})
-	auteticateCp(@Args("registerCpInput") registerCpInput: RegisterCpInput): Promise<CP> {
-		return this.cpService.auteticateCp(registerCpInput)
+	@Mutation(() => CP, {name: "authenticateCp", description: "Autetica el CP en la base de datos"})
+	authenticateCp(@Args("registerCpInput") registerCpInput: RegisterCpInput): Promise<CP> {
+		return this.cpService.authenticateCp(registerCpInput)
 	}
 
 	//---------------------------- READ ----------------------------

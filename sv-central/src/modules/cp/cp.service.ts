@@ -12,8 +12,8 @@ import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 export class CpService {
 	constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){}
 	
-	//---------------------------- AUTETICATE ----------------------------
-	async auteticateCp(registerCpInput: RegisterCpInput): Promise<CP> {
+	//---------------------------- AUTHENTICATE ----------------------------
+	async authenticateCp(registerCpInput: RegisterCpInput): Promise<CP> {
 		
 		const dbCp = await this.cpRepository.findOne({where: {id: registerCpInput.id}})
 		//TODO borrar
