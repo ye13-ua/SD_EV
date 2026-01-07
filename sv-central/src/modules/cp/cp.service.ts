@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CP } from './entities/cp.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { RegisterCpInput } from './dto/register-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
@@ -61,6 +61,18 @@ export class CpService {
 		return dbCp;
 	}
 
+	async findAllCitiesCp(): Promise<string[]> {
+		this.logger.debug('Finding all cities from CPs');
+		const cps = await this.cpRepository.find({
+			where: { ciudad: Not(IsNull()) },
+			select: ['ciudad']
+		});
+		
+		// Extraer ciudades únicas
+		const cities = [...new Set(cps.map(cp => cp.ciudad).filter(ciudad => ciudad))];
+		this.logger.debug(`Found ${cities.length} unique cities`);
+		return cities;
+	}
 	//---------------------------- UNLINK ----------------------------
 	async unlink(id: string): Promise<boolean> {
 		this.logger.log(`Unlinking CP: ${id}`);
