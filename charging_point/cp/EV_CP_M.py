@@ -163,7 +163,7 @@ def encrypt_json(data: dict, key_hex: str) -> dict:
 
     return {
         "iv": iv.hex(),
-        "ciphertext": ciphertext_with_tag[:-16].hex,
+        "ciphertext": ciphertext_with_tag[:-16].hex(),
         "tag": ciphertext_with_tag[-16:].hex(),
     }
 
@@ -233,19 +233,22 @@ def ping_engine(action):
 # Handler of infinite pings
 def handle_engine():
     global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged, CP_DEFAULT_PRICE
-    global target_kwh
+    global target_kwh, last_status
     # By default there was no report yet
-    last_report = None
     last_local_request = None
+    last_report = None
     
     while True:
-
+        finished_sent = False
+        
         while MONITOR_DOWN:
             logger.warning("Simulating MONITOR_DOWN")
             time.sleep(PING_INTERVAL)
             
 
         reply = ping_engine("PING")
+
+
         if not reply:
             logger.error("Engine unreachable — marking CP as BROKEN")
 
@@ -260,6 +263,11 @@ def handle_engine():
         else:
             status = reply.get("status")
 
+            current_report = (status, kafka_ok)
+
+            CP_STATUS_CHANGED = current_report != last_report
+            last_report = current_report
+
             if last_status == "CHARGING_CENTRAL" and status != "CHARGING_CENTRAL":
                 logger.info(f"[{CP_ALIAS}] Charging finished, reporting FINISHED_CHARGING")
                 final_price = 80085 # test number value, should be computed via the charging cicle
@@ -273,8 +281,12 @@ def handle_engine():
                             "price": final_price,
                         }
                     )
+                    finished_sent = True
                 except Exception as e:
                     logger.error(f"Failed to report FINISHED_CHARGING: {e}")
+
+            if not finished_sent:
+                send_status_to_central(status, kafka_ok)
 
             if status == "WAITING" and "local_request" in reply:
                 req = reply["local_request"]
@@ -302,20 +314,10 @@ def handle_engine():
             engine_status = status
             last_status = status
 
-        current_report = (status, kafka_ok)
-
-        CP_STATUS_CHANGED = current_report != last_report
-        last_report = current_report
-
         if CP_STATUS_CHANGED:
             logger.info(
                 f"Status changed: status={status}, kafka={kafka_ok}, driver={driver_id}"
             )
-
-        try:
-            send_status_to_central(status, kafka_ok)
-        except Exception as e:
-            print(f"[[{CP_ALIAS}]] Could not send data to Central: {e}")
         
         time.sleep(PING_INTERVAL)
 
