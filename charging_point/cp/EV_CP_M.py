@@ -173,7 +173,7 @@ def encrypt_json(data: dict, key_hex: str) -> dict:
 
 # GQL post function used to update/relay the status in Central
 def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5, _retry: bool = True):
-    global SYMMETRIC_KEY
+    global SYMMETRIC_KEY, CLIENT_SECRET
 
     def detect_identity_issue(errors):
         try:
