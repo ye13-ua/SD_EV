@@ -6,6 +6,7 @@
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.errors import KafkaError
 import json
+import logging
 import os
 import random
 import threading
@@ -13,6 +14,13 @@ import time
 import uuid
 
 from flask import Flask, render_template_string, jsonify, request
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('DRIVER')
 
 alias_list = [
     'Julio César',
@@ -46,16 +54,14 @@ BROKER = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 INFO_FILE = "driver_info.json"
 STATE_FILE = "driver_state.json"
 
-available_cps = []
-
 driver_info = {}
-driver_state = {"status": "IDLE", "current_cp": None, "last_ticket": None}
+driver_state = {"status": "IDLE", "current_cp": None, "last_ticket": None, "available_cps": []}
 
 def load_or_register_driver(producer):
     if os.path.exists(INFO_FILE):
         with open(INFO_FILE, "r") as f:
             info = json.load(f)
-            print(f"[Driver] DRIVER existente: {info['alias']} (ID={info['id']})")
+            logger.info(f"DRIVER existente: {info['alias']} (ID={info['id']})")
             return info
         
     driver_id = str(uuid.uuid4())[:8]
@@ -67,7 +73,7 @@ def load_or_register_driver(producer):
     with open(INFO_FILE, "w") as f:
         json.dump(driver_info, f)
     
-    print(f"[Driver] Creado como: {alias} (ID={driver_id})")
+    logger.info(f"Creado como: {alias} (ID={driver_id})")
     # msg = {"action": "REGISTER", "alias": alias, "id": driver_id}
     # producer.send("Driver.Commands", msg)
     # producer.flush()
@@ -93,7 +99,7 @@ def safe_send(producer, topic, message):
         producer.flush()
     except KafkaError as e:
         driver_state["status"] = "ERROR: Central no disponible"
-        print(f"[Driver] Error enviando Kafka: {e}")
+        logger.error(f"Error enviando Kafka: {e}")
 
 def save_driver_state():
     with open(STATE_FILE, "w") as f:
@@ -106,14 +112,12 @@ def load_driver_state():
             driver_state = json.load(f)
 
 def request_charge(producer, driver_info, cp_id=None):
-    global available_cps
-    
     # Si no se proporciona cp_id, elegir uno aleatorio de los disponibles
     if cp_id is None:
-        if not available_cps:
-            print(f"[Driver] No hay CPs disponibles. Solicita READALL primero.")
+        if not driver_state["available_cps"]:
+            logger.warning("No hay CPs disponibles. Solicita READALL primero.")
             return
-        cp_id = random.choice(available_cps)["id"]
+        cp_id = random.choice(driver_state["available_cps"])["id"]
     
     msg = {
         "action": "CONNECTCP",
@@ -124,7 +128,7 @@ def request_charge(producer, driver_info, cp_id=None):
 
     safe_send(producer, "Driver.Commands", msg)
     driver_state["status"] = f"Requested charge at {msg['cp_id']}"
-    print(f"[Driver] Solicitando carga en: {msg['cp_id']}")
+    logger.info(f"Solicitando carga en: {msg['cp_id']}")
 
 def disconnect_vehicle(producer, driver_info, cp_id):
     if not driver_state["current_cp"]:
@@ -138,7 +142,7 @@ def disconnect_vehicle(producer, driver_info, cp_id):
     driver_state["status"] = f"Disconnected from {driver_state['current_cp']}"
     driver_state["current_cp"] = None
     save_driver_state()
-    print(f"[Driver] Desconexión forzosa para CP:{cp_id}")
+    logger.info(f"Desconexión forzosa para CP:{cp_id}")
 
 def request_readall(producer):
     msg = {
@@ -146,10 +150,9 @@ def request_readall(producer):
         "driver_id": driver_info["id"]
     }
     safe_send(producer, "Driver.Commands", msg)
-    print(f"[Driver] Solicitando listado de CPs disponibles...")
+    logger.info("Solicitando listado de CPs disponibles...")
 
 def listen_to_central(producer, consumer, stop_event, driver_info):
-    global available_cps
     for msg in consumer:
         if stop_event.is_set():
             break
@@ -166,23 +169,24 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
                 driver_state["current_cp"] = cp_id
                 driver_state["status"] = f"Conectado a CP {cp_id}"
                 save_driver_state()
-                print(f"[Driver] Conexión validada con {cp_id}")
+                logger.info(f"Conexión validada con {cp_id}")
             else:
                 driver_state["status"] = "Conexión denegada"
-                print(f"[Driver] Conexión denegada")
+                logger.warning("Conexión denegada")
         elif action == "TICKET":
             driver_state["last_ticket"] = data
             driver_state["status"] = "Carga completada"
             save_driver_state()
-            print(f"[Driver] Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
+            logger.info(f"Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
-            available_cps = data.get("cps", [])
-            if not available_cps:
-                print(f"[Driver] No hay CPs activos")
+            driver_state["available_cps"] = data.get("cps", [])
+            save_driver_state()
+            if not driver_state["available_cps"]:
+                logger.info("No hay CPs activos")
                 return
             
-            print(f"[Driver] Lista de puntos disponibles ({len(available_cps)}):")
-            for cp in available_cps:
+            logger.info(f"Lista de puntos disponibles ({len(driver_state['available_cps'])}):")
+            for cp in driver_state["available_cps"]:
                 cp_id = cp.get("id")
                 ciudad = cp.get("ciudad", "N/A")
                 calle = cp.get("calle", "N/A")
@@ -190,7 +194,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
                 cp_state = cp.get("estado", "UNKNOWN")
 
                 ubicacion_larga = f"{calle}, {ciudad}"
-                print(
+                logger.info(
                     f"ID: {cp_id} | Estado: {cp_state} | "
                     f"Precio: {cp_precio} €/kWh | "
                     f"Ubicación: {ubicacion_larga}"
@@ -198,7 +202,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         elif action == "DISCONNECT":
             disconnect_vehicle(producer, driver_info, data.get("cp_id"))
         elif action == "CONNECTION_LOGS":
-            print(f"[Driver] LOG: {data.get('logs')}")
+            logger.info(f"LOG: {data.get('logs')}")
 
 app = Flask(__name__)
 
@@ -291,7 +295,7 @@ def index():
         status=driver_state["status"],
         current_cp=driver_state["current_cp"],
         ticket=driver_state["last_ticket"],
-        cps=available_cps
+        cps=driver_state.get("available_cps", [])
     )
 
 @app.route("/charge", methods=["POST"])
@@ -352,7 +356,7 @@ def main():
         group_id=f"driver_{driver_info['id']}"
     )
 
-    print(f"[Driver] App ready for use || ID:{driver_info['id']} Alias:{driver_info['alias']}")
+    logger.info(f"App ready for use || ID:{driver_info['id']} Alias:{driver_info['alias']}")
 
     request_readall(app.producer)
 
@@ -360,7 +364,7 @@ def main():
     threading.Thread(target=listen_to_central, args=(app.producer, consumer, stop_event, driver_info), daemon=True).start()
 
     PORT = int(os.getenv("FLASK_PORT", "5000"))
-    print(f"[Driver] Interfaz disponible en http://localhost:{PORT}")
+    logger.info(f"Interfaz disponible en http://localhost:{PORT}")
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True, use_reloader=False)
 
 
