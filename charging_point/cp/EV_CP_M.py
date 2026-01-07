@@ -352,6 +352,8 @@ def handle_engine():
 def central_auth_request(client_secret: str):
     ciudad = CP_LOCATION.split(",")[-1].strip()
 
+    logger.info(f"[{CP_ALIAS}] Requesting a new authorization from Central...")
+
     mutation = """
     mutation AuthenticateCp($input: RegisterCpInput!) {
         authenticateCp(registerCpInput: $input) {
@@ -391,6 +393,7 @@ def central_auth_request(client_secret: str):
     if not sym:
         raise RuntimeError("Central did not return symmetricKey")
     
+    logger.info(f"[{CP_ALIAS}] Recieved new Symmetrical Key from Central")
     return sym
 
 # Replacement for register_CP_in_central
