@@ -21,6 +21,11 @@ export class CpResolver {
 		return this.cpService.findAll()
 	}
 
+	@Query(() => [String], {name: "findAllCitiesCp", description: "Devuelve todas las ciudades de los cps"})
+	findAllCitiesCp(): Promise<string[]> {
+		return this.cpService.findAllCitiesCp()
+	}
+
 	@Query(() => CP , {name: "findOneCp", description: "Devuelve el cp que coincida con el id de entrada"})
 	findOne(@Args("id") id: string): Promise<CP> {
 		return this.cpService.findOne(id);

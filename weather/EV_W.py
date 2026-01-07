@@ -53,7 +53,7 @@ def gql_post(
     if variables is not None:
         payload["variables"] = variables
     
-    resp = requests.post(CENTRAL_GRAPHQL, json=payload, timeout=timeout)
+    resp = requests.post(CENTRAL_GRAPHQL, json=payload, timeout=timeout, verify=False)
     resp.raise_for_status()
     data= resp.json()
 
@@ -63,30 +63,20 @@ def gql_post(
 
 def request_cities_from_central() -> list[str]:
     query = """
-    query findAllCiudades {
-        findAllCiudades {
-            ciudad
-        }
+    query findAllCitiesCp {
+        findAllCitiesCp
     }
     """
     data = gql_post(query=query, timeout=5)
-    rows = data.get("findAllCiudades", []) or []
-
-    cities = []
-    seen = set()
-    for row in rows:
-        c = (row.get("ciudad") or "").strip()
-        if not c:
-            continue
-        key = c.lower()
-        if key not in seen:
-            seen.add(key)
-            cities.append(c)
+    cities_raw = data.get("findAllCitiesCp", []) or []
+    
+    # Ahora findAllCitiesCp devuelve directamente un array de strings
+    cities = [c.strip() for c in cities_raw if c and c.strip()]
     return cities
 
 def create_alert(city: str):
     mutation = """
-    mutation CreatteAlert($ciudad: String!) {
+    mutation createAlert($ciudad: String!) {
         createAlert(ciudad: $ciudad)
     }
     """
@@ -101,7 +91,7 @@ def create_alert(city: str):
 
 def remove_alert(city: str):
     mutation = """
-    mutation RemoveAlert($ciudad: String!) {
+    mutation removeAlert($ciudad: String!) {
         removeAlert(ciudad: $ciudad)
     }
     """
