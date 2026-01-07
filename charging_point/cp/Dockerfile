@@ -4,7 +4,7 @@ WORKDIR /app
 COPY EV_CP_E.py EV_CP_M.py /app/
 
 COPY requirements.txt /app/
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Variables base
 ENV KAFKA_BROKER=kafka:9092
