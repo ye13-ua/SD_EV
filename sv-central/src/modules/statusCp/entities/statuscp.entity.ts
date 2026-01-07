@@ -6,19 +6,9 @@ export class StatusCP {
     @Field()
     id: string
     
-    @Field({nullable: true})  
-    iv: string
-
-    @Field({nullable: true})  
-    ciphertext: string
-
-    @Field({nullable: true})  
-    tag: string
-    
-    
     // ACTIVE - WAITING - OUT_OF_SERVICE - CHARGING_CENTRAL - BROKEN - DISCONNECTED |!| FINISHED_CHARGING
     @Field({nullable: true})     
-    estado: string
+    estado: "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING"
 
     @Field({nullable: true})
     isChanged: boolean

@@ -16,10 +16,6 @@ export class CP {
     @Column({type: "float"})
     @Field(() => Float)
     precio_kwh: number
-// ----------------------- REGISTRO -----------------------
-    @Column({nullable: true})
-    @Field(() => String, {nullable: true})
-    clientSecretHash: string
 
     @Column({nullable: true})
     @Field(() => String, {nullable: true})

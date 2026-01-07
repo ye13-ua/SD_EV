@@ -18,15 +18,7 @@ export class CreateCpInput {
     precio_kwh: number
 
     // ----------------------- REGISTRO -----------------------
-
-    @Field({nullable: true})
-    clientSecretHash: string
-
     @Field({nullable: true})
     clientSecret: string
-
-
-    // ----------------------- AUTENTICACIÓN -----------------------
-    @Field({nullable: true})
-    symmetricKey: string
+z
 }
