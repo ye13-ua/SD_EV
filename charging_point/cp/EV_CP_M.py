@@ -232,67 +232,61 @@ def ping_engine(action):
         
 # Handler of infinite pings
 def handle_engine():
-    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED, driver_id, already_charged, CP_DEFAULT_PRICE
-    global target_kwh, last_status
-    # By default there was no report yet
+    global engine_status, last_ping, kafka_ok, car_status, CP_STATUS_CHANGED
+    global driver_id, already_charged, CP_DEFAULT_PRICE, target_kwh, last_status, CP_LOCATION
+
     last_local_request = None
     last_report = None
-    
+
     while True:
         finished_sent = False
-        
+
         while MONITOR_DOWN:
             logger.warning("Simulating MONITOR_DOWN")
             time.sleep(PING_INTERVAL)
-            
 
         reply = ping_engine("PING")
 
-
         if not reply:
             logger.error("Engine unreachable — marking CP as BROKEN")
-
             status = "BROKEN"
             kafka_ok = False
-
-            # Set the rest as None | Hard reset
             driver_id = None
             already_charged = 0.0
             target_kwh = 0.0
             car_status = False
+
         else:
             status = reply.get("status")
+            kafka_ok = reply.get("kafka_ok", True)
 
-            current_report = (status, kafka_ok)
-
-            CP_STATUS_CHANGED = current_report != last_report
-            last_report = current_report
-
+            # FINISHED_CHARGING event
             if last_status == "CHARGING_CENTRAL" and status != "CHARGING_CENTRAL":
+                prev_driver = driver_id
+                prev_charged = already_charged
                 logger.info(f"[{CP_ALIAS}] Charging finished, reporting FINISHED_CHARGING")
-                final_price = 80085 # test number value, should be computed via the charging cicle
                 try:
                     send_status_to_central(
                         status="FINISHED_CHARGING",
                         kafka_ok=kafka_ok,
                         extra_data={
-                            "driverId": driver_id,
-                            "alreadyCharged": already_charged,
-                            "price": final_price,
+                            "driverId": prev_driver,
+                            "alreadyCharged": prev_charged,
+                            "price": 80085,
                         }
                     )
                     finished_sent = True
                 except Exception as e:
                     logger.error(f"Failed to report FINISHED_CHARGING: {e}")
 
-            if not finished_sent:
-                send_status_to_central(status, kafka_ok)
-
+            # local request logic
             if status == "WAITING" and "local_request" in reply:
                 req = reply["local_request"]
                 if req != last_local_request:
                     send_charging_petition_to_central(req["driver_id"], req["target_kwh"])
                     last_local_request = req
+
+            # charging metrics
             if status == "CHARGING_CENTRAL":
                 already_charged = float(reply.get("charging_process", 0.0) or 0.0)
                 target_kwh = float(reply.get("target_kwh", 0.0) or 0.0)
@@ -300,25 +294,35 @@ def handle_engine():
                 already_charged = 0.0
                 target_kwh = 0.0
 
-            kafka_ok = reply.get("kafka_ok",True)
-            car_status = reply.get("car_connected",False)
-            driver_id = reply.get("driver_id",None)
-    
+            car_status = reply.get("car_connected", False)
+            driver_id = reply.get("driver_id", None)
+
             CP_DEFAULT_PRICE = reply.get("price_kwh")
             new_city = reply.get("city")
             if new_city and new_city != CP_LOCATION.split(",")[-1].strip():
                 calle = CP_LOCATION.split(",")[0]
                 CP_LOCATION = f"{calle}, {new_city}"
                 logger.info(f"City updated from Engine: {new_city}")
+
             last_ping = time.strftime("%H:%M:%S")
             engine_status = status
             last_status = status
 
+        # compute isChanged for BOTH branches
+        current_report = (status, kafka_ok)
+        CP_STATUS_CHANGED = current_report != last_report
+        last_report = current_report
+
+        # send status (skip duplicate if FINISHED already sent)
+        try:
+            if not finished_sent:
+                send_status_to_central(status, kafka_ok)
+        except Exception as e:
+            logger.error(f"Could not send status to Central: {e}")
+
         if CP_STATUS_CHANGED:
-            logger.info(
-                f"Status changed: status={status}, kafka={kafka_ok}, driver={driver_id}"
-            )
-        
+            logger.info(f"Status changed: status={status}, kafka={kafka_ok}, driver={driver_id}")
+
         time.sleep(PING_INTERVAL)
 
 # Replacement for register_CP_in_central
