@@ -5,12 +5,12 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
   
-  const certPath = existsSync("/certs/registry.key") ? "/certs" : "../certs";
+  const certPath = existsSync("/certs/central.key") ? "/certs" : "../certs";
   const app = await NestFactory.create(AppModule, {
     httpsOptions:
       {
-        key: readFileSync(`${certPath}/registry.key`),
-        cert: readFileSync(`${certPath}/registry.crt`),
+        key: readFileSync(`${certPath}/central.key`),
+        cert: readFileSync(`${certPath}/central.crt`),
   },});
   
   // Habilitar CORS

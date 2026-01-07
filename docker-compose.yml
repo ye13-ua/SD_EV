@@ -36,8 +36,8 @@ services:
 
       PORT: 4000
     volumes:
-      - ./certs/registry.crt:/certs/registry.crt
-      - ./certs/registry.key:/certs/registry.key
+      - ./certs/central.crt:/certs/central.crt
+      - ./certs/central.key:/certs/central.key
     depends_on:
       kafka:
         condition: service_healthy
@@ -129,7 +129,7 @@ services:
       dockerfile: Dockerfile
     environment:
       KAFKA_BROKER: "kafka:9092"
-      CENTRAL_HOST: "http://ev_central:4000"
+      CENTRAL_HOST: "https://ev_central:4000"
       REGISTRY_GRAPHQL: "https://ev_registry:4001/graphql"
       ENGINE_PORT: "7000"
       ENGINE_HOST: "0.0.0.0"
