@@ -179,6 +179,25 @@ services:
     networks: [ev_net]
     restart: on-failure
 
+  # ----------------------- WEATHER -----------------------
+  ev_weather:
+    build: ./weather
+    container_name: ev_weather
+    environment:
+      CENTRAL_GRAPHQL: "https://ev_central:4000/graphql"
+      OPENWEATHER_URL: "https://api.openweathermap.org/data/2.5/weather"
+      # NEVER EXPOSE IT BUT I DON'T GIVE RIGHT NOW
+      # USE .ENV LATER
+      OPENWEATHER_API: "9de3ba080271dd0704768c93ce3e5077"
+      LOG_FILE: "/app/weather.log"
+    depends_on:
+      ev_central:
+        condition: service_healthy
+    ports:
+      - "9100:9100"
+    networks:
+      - ev_net
+    restart: on-failure
   # ----------------------- VOLUMES & NETWORKS -----------------------
 volumes:
   postgres_data:
