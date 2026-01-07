@@ -88,8 +88,6 @@ services:
   frontend:
     build: ./front/frontend-app
     container_name: ev_frontend
-    environment:
-      VITE_CENTRAL_URL: "https://ev_central:4000"
     ports:
       - "8862:80"
     networks:
