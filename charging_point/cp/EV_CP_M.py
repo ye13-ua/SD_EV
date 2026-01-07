@@ -262,7 +262,7 @@ def handle_engine():
 
             if last_status == "CHARGING_CENTRAL" and status != "CHARGING_CENTRAL":
                 logger.info(f"[{CP_ALIAS}] Charging finished, reporting FINISHED_CHARGING")
-                final_price = 80085
+                final_price = 80085 # test number value, should be computed via the charging cicle
                 try:
                     send_status_to_central(
                         status="FINISHED_CHARGING",
