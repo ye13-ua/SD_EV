@@ -53,7 +53,7 @@ def gql_post(
     if variables is not None:
         payload["variables"] = variables
     
-    resp = requests.post(CENTRAL_GRAPHQL, json=payload, timeout=timeout)
+    resp = requests.post(CENTRAL_GRAPHQL, json=payload, timeout=timeout, verify=False)
     resp.raise_for_status()
     data= resp.json()
 
