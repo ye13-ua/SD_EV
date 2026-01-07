@@ -3,3 +3,4 @@ flask
 python-socketio
 requests
 websocket-client
+cryptography

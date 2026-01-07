@@ -1,24 +1,13 @@
-##### EV_CP_Engine ##############################################################################################
-# ENV definitions:                                                                                              #
-# Default Engine port -> 7000                                                                                   #
-# Default Central port -> 4000                                                                                  #
-# Default Engine host -> "ev_cp_engine"                                                                         # 
-# Default Central host -> "ev_central"                                                                          # 
-# Default local UUID path -> "/app/cp_uuid.json"                                                                #
-# Default Kafka Broker -> kafka:9092                                                                            #
-# Docker network env. -> ev_net                                                                                 #
-# Execution prompt -> "python EV_CP_M.py"                                                                       #
-#                                                                                                               #
-# env. dependencies -> cp_engine, central                                                                       #
-#                                                                                                               #
-#                                                                                                               #
-#################################################################################################################
+# Registry port :4001
+# Central port :4000
 
 ################################
 # Logging functuionality, SKIP #
 ################################
 import os
 import logging
+import cryptography
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from logging.handlers import RotatingFileHandler
 
 LOG_PATH = os.getenv("CP_LOG_PATH", "/app/cp.log")
@@ -65,7 +54,7 @@ from flask import Flask, render_template_string, jsonify
 ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
 ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 
-CENTRAL_HOST = os.getenv("CENTRAL_HOST","http://localhost:4000")
+CENTRAL_HOST = os.getenv("CENTRAL_HOST","https://localhost:4000")
 
 UUID_PATH = os.getenv("UUID_PATH", f"/app/cp_uuid_{os.getenv('CP_INDEX','0')}.json")
 
@@ -96,6 +85,7 @@ CP_STATUS_CHANGED = False
 already_charged = 0.0
 target_kwh = 0.0
 driver_id = None
+last_status = None
 
 def generate_alias(uuid_str, ciudad):
     prefix = uuid_str.split('-')[0].upper()  # primeros 8 chars del UUID
@@ -163,8 +153,33 @@ def save_cp_secrets(client_secret, symmetric_key):
             }
         , f)
 
+def encrypt_json(data: dict, key_hex: str) -> dict:
+    key = bytes.fromhex(key_hex)
+    iv = os.urandom(12)
+    aesgcm = AESGCM(key)
+
+    plaintext = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    ciphertext_with_tag = aesgcm.encrypt(iv, plaintext, None)
+
+    return {
+        "iv": iv.hex(),
+        "ciphertext": ciphertext_with_tag[:-16].hex,
+        "tag": ciphertext_with_tag[-16:].hex(),
+    }
+
 # GQL post function used to update/relay the status in Central
-def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5):
+def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5, _retry: bool = True):
+
+    def is_unauthenticated_gql_error(errors):
+        try:
+            for err in errors or []:
+                ext = err.get("extensions") or {}
+                if ext.get("code") == "UNAUTHENTICATED":
+                    return True
+        except Exception:
+            pass
+        return False
+
     if not CLIENT_SECRET:
         raise RuntimeError("CLIENT_SECRET missing!")
     
@@ -178,12 +193,21 @@ def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5
         CENTRAL_HOST + "/graphql",
         json=payload,
         headers=headers,
-        timeout=timeout
+        timeout=timeout,
+        verify=False
     )
     resp.raise_for_status()
     data = resp.json()
 
-    if "errors" in data:
+    if "errors" in data and data["errors"]:
+        if _retry and is_unauthenticated_gql_error(data["errors"]):
+            logger.warning("Central returned UNAUTHENTICATED :: refreshing symmetric key and retrying once")
+            try:
+                bootstrap_cp_integrity(force_reauth=True)
+            except Exception as e:
+                logger.error(f"Symmetric key refresh failed: {e}")
+                raise RuntimeError(data["errors"])
+            return gql_post_central(query, variables=variables, timeout=timeout, _retry=False)
         raise RuntimeError(data["errors"])
     
     return data.get("data")
@@ -236,6 +260,22 @@ def handle_engine():
         else:
             status = reply.get("status")
 
+            if last_status == "CHARGING_CENTRAL" and status != "CHARGING_CENTRAL":
+                logger.info(f"[{CP_ALIAS}] Charging finished, reporting FINISHED_CHARGING")
+                final_price = 80085
+                try:
+                    send_status_to_central(
+                        status="FINISHED_CHARGING",
+                        kafka_ok=kafka_ok,
+                        extra_data={
+                            "driverId": driver_id,
+                            "alreadyCharged": already_charged,
+                            "price": final_price,
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to report FINISHED_CHARGING: {e}")
+
             if status == "WAITING" and "local_request" in reply:
                 req = reply["local_request"]
                 if req != last_local_request:
@@ -260,6 +300,7 @@ def handle_engine():
                 logger.info(f"City updated from Engine: {new_city}")
             last_ping = time.strftime("%H:%M:%S")
             engine_status = status
+            last_status = status
 
         current_report = (status, kafka_ok)
 
@@ -279,58 +320,127 @@ def handle_engine():
         time.sleep(PING_INTERVAL)
 
 # Replacement for register_CP_in_central
-def register_cp_in_registry():
-    global CLIENT_SECRET, SYMMETRIC_KEY # we need them now
-
-    if CLIENT_SECRET: # we don't apply if we managed to load the secret
-        print(f"[{CP_ALIAS}] CP already is registered (secret loaded)")
-        return
+def bootstrap_cp_integrity(force_reauth: bool = False):
+    global CLIENT_SECRET, SYMMETRIC_KEY
 
     ciudad = CP_LOCATION.split(",")[-1].strip()
-    calle = CP_LOCATION.split(",")[0].replace("Calle", "").strip()
+    # calle
+    # calle = CP_LOCATION.split(",")[0].replace("Calle", "").strip()
 
-    # The mutation request
-    mutation = """
-    mutation CreateCp($input: CreateCpInput!) {
-        createCp(createCpInput: $input) {
-            id
-            clientSecret
-            symmetricKey
+    def registry_request():
+        nonlocal ciudad
+
+        mutation = """
+        mutation CreateCp($input: CreateCpInput!) {
+            createCp(createCpInput: $input) {
+                id
+                ciudad
+                precio_kwh
+                clientSecret
+            }
         }
-    }
-    """
-    variables = {
-        "input": {
-            "id": CP_ID,
-            "ciudad": ciudad,
-            "calle": calle,
-            "precio_kwh": CP_DEFAULT_PRICE
+        """
+
+        variables = {
+            "input": {
+                "id": CP_ID,
+                "ciudad": ciudad,
+                "precio_kwh": CP_DEFAULT_PRICE
+            }
         }
-    }
 
-    resp = requests.post(
-        REGISTRY_GRAPHQL,
-        json={"query": mutation, "variables": variables},
-        timeout=5,
-    )
-    resp.raise_for_status()
+        resp = requests.post(
+            REGISTRY_GRAPHQL,
+            json={"query": mutation, "variables": variables},
+            timeout=5,
+            verify=False
+        )
+        resp.raise_for_status()
+        data = resp.json()
 
-    data = resp.json()
-    if "errors" in data:
-        raise RuntimeError(data["errors"])
+        if "errors" in data:
+            raise RuntimeError(data["errors"])
+
+        result = data["data"]["createCp"]
+
+        if result["id"] != CP_ID:
+            raise RuntimeError("Registry returned mismatching ID")
+        
+        secret = result.get("clientSecret")
+        if not secret:
+            raise RuntimeError("Registry did not return clientSecret")
+
+        return secret
     
-    result = data["data"]["createCp"]
+    def central_auth_request(client_secret: str):
+        nonlocal ciudad
 
-    CLIENT_SECRET = result["clientSecret"]
-    SYMMETRIC_KEY = result.get("symmetricKey")
+        mutation = """
+        mutation AuthenticateCp($input: RegisterCpInput!) {
+            authenticateCp(registerCpInput: $input) {
+                id
+                ciudad
+                precio_kwh
+                clientSecret
+                symmetricKey
+            }
+        }
+        """
+
+        variables = {
+            "input": {
+                "id": CP_ID,
+                "ciudad": ciudad,
+                "precio_kwh": CP_DEFAULT_PRICE,
+                "clientSecret": client_secret
+            }
+        }
+
+        resp = requests.post(
+            CENTRAL_HOST + "/graphql",
+            json={"query": mutation, "variables": variables},
+            timeout=5,
+            verify=False
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        if "errors" in data:
+            raise RuntimeError(data["errors"])
+
+        result = data["data"]["authenticateCp"]
+
+        sym = result.get("symmetricKey")
+        if not sym:
+            raise RuntimeError("Central did not return symmetricKey")
+        
+        return sym
+    
+    if CLIENT_SECRET and SYMMETRIC_KEY and not force_reauth:
+        logger.info(f"[{CP_ALIAS}] Identity already present (clientSecret + symmetricKey)")
+        return
+
+    if force_reauth and CLIENT_SECRET:
+        logger.warning(f"[{CP_ALIAS}] Forcing re-auth in Central (refresh symmetricKey)")
+        SYMMETRIC_KEY = central_auth_request(CLIENT_SECRET)
+        save_cp_secrets(CLIENT_SECRET, SYMMETRIC_KEY)
+        return
+    
+    if not CLIENT_SECRET:
+        logger.info(f"[CP_ALIAS] Registering in Registry...")
+        CLIENT_SECRET = registry_request()
+        save_cp_secrets(CLIENT_SECRET, SYMMETRIC_KEY)
+
+    logger.info(f"[{CP_ALIAS}] Authenticating in Central...")
+    SYMMETRIC_KEY = central_auth_request(CLIENT_SECRET)
 
     save_cp_secrets(CLIENT_SECRET, SYMMETRIC_KEY)
+    logger.info(f"[{CP_ALIAS}] Bootstrap complete (clientSecret + symmetricKey stored)")
 
-    logger.info("CP successfully registered in registry")
 
 # Sends, on change, the status of the charging point
 #TODO rework for GQL (ID_UUID is now ID)
-def send_status_to_central(status, kafka_ok):
+def send_status_to_central(status, kafka_ok, extra_data: dict | None = None):
     global last_central_contact, already_charged, driver_id, CP_DEFAULT_PRICE
 
     mutation = """
@@ -344,12 +454,18 @@ def send_status_to_central(status, kafka_ok):
         "isChanged": CP_STATUS_CHANGED,
         "kafkaOK": kafka_ok,
         "alreadyCharged": already_charged,
-        "price": CP_DEFAULT_PRICE
+        #"price": CP_DEFAULT_PRICE,
+        "city": CP_LOCATION.split(",")[-1].strip(),
     }
+    if extra_data:
+        input_obj.update(extra_data)
     if driver_id is not None:
         input_obj["driverId"] = driver_id
 
-    variables = {"input": input_obj}
+    if not SYMMETRIC_KEY:
+        raise RuntimeError("Missing symmetric key for encryption")
+    encrypted = encrypt_json(input_obj, SYMMETRIC_KEY)
+    variables = {"input": encrypted}
 
     try:
         gql_post_central(mutation, variables=variables)
@@ -364,7 +480,7 @@ def send_charging_petition_to_central(driver_id, target_charge):
             postCommand(commandInput: $input)
         }
     """
-    variables = {
+    payload = {
         "input": {
             "command": "CHARGING_PETTITION",
             "cpId": CP_ID,
@@ -372,6 +488,11 @@ def send_charging_petition_to_central(driver_id, target_charge):
             "targetCharge": target_charge
         }
     }
+
+    if not SYMMETRIC_KEY:
+        raise RuntimeError("Missing symmetric key for encryption")
+    encrypted = encrypt_json(payload, SYMMETRIC_KEY)
+    variables = {"input": encrypted}
 
     try:
         gql_post_central(mutation, variables=variables)
@@ -524,13 +645,12 @@ def main():
     # Load CP secret
     load_cp_secrets()
 
-    if not CLIENT_SECRET:
-        try:
-            register_cp_in_registry()
-        except Exception as e:
-            logger.error(f"Registry registration failed: {e}")
-            logger.critical("Cannot continue without identity")
-            return
+    try:
+        bootstrap_cp_integrity(force_reauth=False)
+    except Exception as e:
+        logger.error(f"Identity bootstrap failed: {e}")
+        logger.critical("Cannot continue without identity")
+        return
 
     # Authenticate the engine connection
     for attempt in range(5):
