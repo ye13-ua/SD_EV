@@ -471,6 +471,7 @@ def send_status_to_central(status, kafka_ok, extra_data: dict | None = None):
     if not SYMMETRIC_KEY:
         raise RuntimeError("Missing symmetric key for encryption")
     encrypted = encrypt_json(input_obj, SYMMETRIC_KEY)
+    encrypted["id"] = CP_ID  # El id va fuera del objeto encriptado
     variables = {"input": encrypted}
 
     try:

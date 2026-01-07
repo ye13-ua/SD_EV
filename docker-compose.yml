@@ -47,6 +47,12 @@ services:
       - "4000:4000"
     networks:
       - ev_net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: npm run start:prod
 
   ev_registry:
@@ -70,6 +76,12 @@ services:
       - "4001:4001"
     networks:
       - ev_net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: npm run start:prod
 
   # ----------------------- FRONTEND -----------------------
@@ -142,9 +154,9 @@ services:
       kafka:
         condition: service_healthy
       ev_central:
-        condition: service_started
+        condition: service_healthy
       ev_registry:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "9100-9199:9000"
     networks: [ev_net]
