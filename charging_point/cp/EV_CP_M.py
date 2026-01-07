@@ -277,7 +277,7 @@ def handle_engine():
     last_report = None
 
     while True:
-        
+        finished_sent = False
 
         while MONITOR_DOWN:
             logger.warning("Simulating MONITOR_DOWN")
@@ -318,8 +318,6 @@ def handle_engine():
                     finished_sent = True
                 except Exception as e:
                     logger.error(f"Failed to report FINISHED_CHARGING: {e}")
-
-            finished_sent = False
 
             # local request logic
             if status == "WAITING" and "local_request" in reply:
