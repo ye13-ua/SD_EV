@@ -21,6 +21,8 @@ export class CommandService {
     switch(commandInput.command){
       case "STOP":
         return this.stopPettiton(commandInput);
+      case "STOP_COLD":
+        return this.stopColdPetition(commandInput);
       case "BROKEN":
         return this.brokenPetition(commandInput);
       case "START":
@@ -38,6 +40,17 @@ export class CommandService {
   }
   
   //------------------------ CP FUNCIONALIDADES ------------------------
+  stopColdPetition(commandInput: CommandInput): boolean {
+    this.logger.log(`Sending STOP_COLD command to CP: ${commandInput.cpId}`);
+    this.producerService.kafkaEmitToCP({ 
+      cpId: commandInput.cpId,
+      target: "ONE",
+      action: "STOP_COLD",
+    });
+    this.logger.log(`STOP_COLD command sent to CP: ${commandInput.cpId}`);
+    return true;
+  }
+
   unlinkPetition(commandInput: CommandInput): boolean { 
     this.logger.log(`Unlinking CP: ${commandInput.cpId}`);
     this.cpService.unlink(commandInput.cpId);

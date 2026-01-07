@@ -14,6 +14,7 @@ type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BR
 export class StatusCpService {
 	private readonly logger = new Logger(StatusCpService.name);
 	private activeCPs = new Map<string, StatusCP>();
+	private stoppedCPsByAlert = new Set<string>(); // CPs detenidos por alerta
 
 	constructor(private readonly cpService: CpService, 
 		private readonly alertService: AlertService,
@@ -144,33 +145,81 @@ export class StatusCpService {
 	@Interval(10_000)
     checkAlertCps(): void {
         this.logger.debug('Checking for CPs in alert cities');
-        const cities = this.alertService.findAll().map(alert => alert.ciudad);
+        const alertCities = this.alertService.findAll().map(alert => alert.ciudad);
         
-        if (cities.length === 0) {
+        if (alertCities.length === 0) {
             this.logger.debug('No alert cities found');
+            
+            // Si no hay alertas pero hay CPs detenidos, reiniciarlos
+            if (this.stoppedCPsByAlert.size > 0) {
+                this.logger.log(`No more alerts. Restarting ${this.stoppedCPsByAlert.size} stopped CPs`);
+                this.stoppedCPsByAlert.forEach(cpId => {
+                    const cp = this.activeCPs.get(cpId);
+                    if (cp) {
+                        this.logger.log(`Sending START command to CP ${cpId} (alert cleared)`);
+                        this.commandService.postCommand({
+                            command: "START",
+                            cpId: cpId,
+                            target: "ONE"
+                        });
+                    }
+                });
+                this.stoppedCPsByAlert.clear();
+            }
             return;
         }
         
-        this.logger.debug(`Found ${cities.length} alert cities: ${cities.join(', ')}`);
+        this.logger.debug(`Found ${alertCities.length} alert cities: ${alertCities.join(', ')}`);
         
-        // Flatten: convierte array de arrays en array plano
-        const cpsinAlert = cities.flatMap((city) => {
+        // CPs en ciudades con alerta que están activos
+        const cpsinAlert = alertCities.flatMap((city) => {
             return [...this.activeCPs.values()]
                 .filter(cp => cp.city === city)
                 .filter(cp => cp.estado === "ACTIVE");
         });
 
+        // IDs de CPs que actualmente están en alerta
+        const currentAlertCpIds = new Set(cpsinAlert.map(cp => cp.id));
+        
+        // Reiniciar CPs que ya no están en ciudades de alerta
+        const cpsToRestart = [...this.stoppedCPsByAlert].filter(cpId => {
+            const cp = this.activeCPs.get(cpId);
+            return cp && !alertCities.includes(cp.city);
+        });
+        
+        cpsToRestart.forEach(cpId => {
+            this.logger.log(`Sending START command to CP ${cpId} (city no longer in alert)`);
+            this.commandService.postCommand({
+                command: "START",
+                cpId: cpId,
+                target: "ONE"
+            });
+            this.stoppedCPsByAlert.delete(cpId);
+        });
 
+        // Detener CPs en ciudades con alerta
         if (cpsinAlert.length > 0) {
             this.logger.warn(`Found ${cpsinAlert.length} active CPs in alert cities`);
             cpsinAlert.forEach(cp => {
-                this.logger.warn(`Sending STOP command to CP ${cp.id} in city ${cp.city} (Temperature < 0°C)`);
-				this.commandService.postCommand({
-					command: "STOP",
-					cpId: cp.id,
-					target: "ONE"
-				});
-			});
+                if (!this.stoppedCPsByAlert.has(cp.id)) {
+                    this.logger.warn(`Sending STOP command to CP ${cp.id} in city ${cp.city} (Temperature < 0°C)`);
+                    /*			
+					this.commandService.postCommand({
+                        command: "STOP_COLD",
+                        cpId: cp.id,
+                        target: "ONE"
+                    });
+					*/
+					this.commandService.postCommand({
+                        command: "STOP",
+                        cpId: cp.id,
+                        target: "ONE"
+                    });
+                    this.stoppedCPsByAlert.add(cp.id);
+                } else {
+                    this.logger.debug(`CP ${cp.id} already stopped by alert`);
+                }
+            });
         } else {
             this.logger.debug('No active CPs found in alert cities');
         }

@@ -1,6 +1,6 @@
 import { IsNumber, IsString, IsUUID, Min } from "class-validator"
 
-type ActionType = "STOP" | "BROKEN" | "START" | "CHARGE" | "UPDATE_PRICE" | "UPDATE_CITY" | "DRIVER_DISCONNECT"
+type ActionType = "STOP" | "BROKEN" | "START" | "CHARGE" | "UPDATE_PRICE" | "UPDATE_CITY" | "DRIVER_DISCONNECT" | "STOP_COLD";
 
 export class CentralCpInput {
     action: ActionType
