@@ -76,12 +76,14 @@ def request_cities_from_central() -> list[str]:
 
 def create_alert(city: str):
     mutation = """
-    mutation createAlert($ciudad: String!) {
-        createAlert(ciudad: $ciudad)
+    mutation CreateAlert($input: CreateAlertInput!) {
+        createAlert(createAlertInput: $input) {
+            ciudad
+        }
     }
     """
 
-    variables = {"ciudad": city}
+    variables = {"input": {"ciudad": city}}
 
     try:
         gql_post(mutation, variables=variables, timeout=5)
@@ -91,8 +93,10 @@ def create_alert(city: str):
 
 def remove_alert(city: str):
     mutation = """
-    mutation removeAlert($ciudad: String!) {
-        removeAlert(ciudad: $ciudad)
+    mutation RemoveAlert($ciudad: String!) {
+        removeAlert(ciudad: $ciudad) {
+            ciudad
+        }
     }
     """
 
