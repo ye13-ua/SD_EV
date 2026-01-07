@@ -106,6 +106,15 @@ def load_driver_state():
             driver_state = json.load(f)
 
 def request_charge(producer, driver_info, cp_id=None):
+    global available_cps
+    
+    # Si no se proporciona cp_id, elegir uno aleatorio de los disponibles
+    if cp_id is None:
+        if not available_cps:
+            print(f"[Driver] No hay CPs disponibles. Solicita READALL primero.")
+            return
+        cp_id = random.choice(available_cps)["id"]
+    
     msg = {
         "action": "CONNECTCP",
         "driver_id": driver_info["id"],
@@ -145,7 +154,7 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
         if stop_event.is_set():
             break
 
-        data = msg
+        data = msg.value
     
         if data.get("driver_id") and data["driver_id"] != driver_info["id"]:
             continue

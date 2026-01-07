@@ -33,6 +33,8 @@ export class CommandService {
         return this.updateCityCp(commandInput);
       case "UNLINK":
         return this.unlinkPetition(commandInput);
+      case "TICKET":
+        return this.finishedChargingPetition(commandInput);
       default:
         this.logger.warn(`Unknown command: ${commandInput.command}`);
         return false;
@@ -40,6 +42,18 @@ export class CommandService {
   }
   
   //------------------------ CP FUNCIONALIDADES ------------------------
+  finishedChargingPetition(commandInput: CommandInput): boolean {
+    this.logger.log(`Sending TICKET command to CP: ${commandInput.cpId}`);
+    this.producerService.kafkaEmitToDriver({
+      driver_id: commandInput.driverId,
+      action: "TICKET",
+      cp_id: commandInput.cpId,
+      price: commandInput.price,
+    });
+    this.logger.log(`FINISHED_CHARGING command sent to CP: ${commandInput.cpId}`);
+    return true;
+  }
+
   stopColdPetition(commandInput: CommandInput): boolean {
     this.logger.log(`Sending STOP_COLD command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({ 
@@ -124,13 +138,13 @@ export class CommandService {
     if (modCP){
       
       const kafkaInput: CentralCpInput = {
-        action: "UPDATE_PRICE",
+        action: "UPDATE_CITY",
         target: "ONE",
         cpId: commandInput.cpId,
         newCity: commandInput.newCity,
       }
 
-      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice});
+      await this.cpService.update({id: commandInput.cpId, ciudad: commandInput.newCity});
       this.logger.log(`City updated for CP: ${commandInput.cpId}`);
       return await this.producerService.kafkaEmitToCP(kafkaInput);
     }

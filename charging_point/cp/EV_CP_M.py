@@ -130,6 +130,20 @@ CP_ID = CP_DATA["id"]
 CP_ALIAS = CP_DATA["alias"]
 CP_LOCATION = CP_DATA["location"]
 
+# Function to save CP location to file
+def save_cp_location(new_location: str):
+    global CP_LOCATION
+    CP_LOCATION = new_location
+    try:
+        with open(UUID_PATH, "r") as f:
+            data = json.load(f)
+        data["location"] = new_location
+        with open(UUID_PATH, "w") as f:
+            json.dump(data, f)
+        logger.info(f"Location saved to file: {new_location}")
+    except Exception as e:
+        logger.error(f"Failed to save location to file: {e}")
+
 # Default price generated in range from 0.10 to 0.45 with only 3 decimals
 CP_DEFAULT_PRICE = round(random.uniform(0.10, 0.45), 3)
 
@@ -290,13 +304,15 @@ def handle_engine():
                 prev_charged = already_charged
                 logger.info(f"[{CP_ALIAS}] Charging finished, reporting FINISHED_CHARGING")
                 try:
+                    # Calcular precio real: kWh cargados * precio por kWh
+                    total_price = round(prev_charged * CP_DEFAULT_PRICE, 2)
                     send_status_to_central(
                         status="FINISHED_CHARGING",
                         kafka_ok=kafka_ok,
                         extra_data={
                             "driverId": prev_driver,
                             "alreadyCharged": prev_charged,
-                            "price": 80085,
+                            "price": total_price,
                         }
                     )
                     finished_sent = True
@@ -325,7 +341,8 @@ def handle_engine():
             new_city = reply.get("city")
             if new_city and new_city != CP_LOCATION.split(",")[-1].strip():
                 calle = CP_LOCATION.split(",")[0]
-                CP_LOCATION = f"{calle}, {new_city}"
+                new_location = f"{calle}, {new_city}"
+                save_cp_location(new_location)
                 logger.info(f"City updated from Engine: {new_city}")
 
             last_ping = time.strftime("%H:%M:%S")

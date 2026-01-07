@@ -4,7 +4,7 @@ import { InputType, Float, Field } from '@nestjs/graphql';
 export class CommandInput {
   // CHARGING_PETTITION - 
   @Field(() => String)
-  command: "STOP" | "START" | "BROKEN" | "UPDATE_PRICE" | "UPDATE_CITY" | "UNLINK" | "STOP_COLD";
+  command: "STOP" | "START" | "BROKEN" | "UPDATE_PRICE" | "UPDATE_CITY" | "UNLINK" | "STOP_COLD" | "TICKET";
 
   @Field(() => String, {nullable: true})
   cpId: string
@@ -24,4 +24,6 @@ export class CommandInput {
   @Field(() => String, {nullable: true})
   newCity?: string
 
+  @Field(() => Float, {nullable: true})
+  price?: number
 }

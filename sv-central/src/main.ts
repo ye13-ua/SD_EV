@@ -29,6 +29,9 @@ async function bootstrap() {
       },
       consumer: {
         groupId: process.env.KAFKA_GROUPID ?? "commands-service"
+      },
+      subscribe: {
+        fromBeginning: false
       }
     }
   })

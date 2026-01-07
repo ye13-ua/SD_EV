@@ -83,6 +83,13 @@ export class StatusCpService {
 				break;
 			case "FINISHED_CHARGING":
 				this.logger.debug(`CP ${statuscp.id} FINISHED_CHARGING`);
+				this.commandService.postCommand({
+					command: "TICKET",
+					price: statuscp.price,
+					driverId: statuscp.driverId,
+					cpId: statuscp.id,
+					target: "ONE"
+				});
 				break;
 			case "OUT_OF_SERVICE":
 				this.logger.warn(`CP ${statuscp.id} is OUT_OF_SERVICE`);
@@ -177,9 +184,6 @@ export class StatusCpService {
                 .filter(cp => cp.city === city)
                 .filter(cp => cp.estado === "ACTIVE");
         });
-
-        // IDs de CPs que actualmente están en alerta
-        const currentAlertCpIds = new Set(cpsinAlert.map(cp => cp.id));
         
         // Reiniciar CPs que ya no están en ciudades de alerta
         const cpsToRestart = [...this.stoppedCPsByAlert].filter(cpId => {
@@ -197,28 +201,26 @@ export class StatusCpService {
             this.stoppedCPsByAlert.delete(cpId);
         });
 
-        // Detener CPs en ciudades con alerta
+        // Detener CPs en ciudades con alerta (reenviar en cada check)
         if (cpsinAlert.length > 0) {
             this.logger.warn(`Found ${cpsinAlert.length} active CPs in alert cities`);
             cpsinAlert.forEach(cp => {
-                if (!this.stoppedCPsByAlert.has(cp.id)) {
-                    this.logger.warn(`Sending STOP command to CP ${cp.id} in city ${cp.city} (Temperature < 0°C)`);
-                    /*			
-					this.commandService.postCommand({
-                        command: "STOP_COLD",
-                        cpId: cp.id,
-                        target: "ONE"
-                    });
-					*/
-					this.commandService.postCommand({
-                        command: "STOP",
-                        cpId: cp.id,
-                        target: "ONE"
-                    });
-                    this.stoppedCPsByAlert.add(cp.id);
+                const isFirstTime = !this.stoppedCPsByAlert.has(cp.id);
+                
+                if (isFirstTime) {
+                    this.logger.warn(`Sending STOP command to CP ${cp.id} in city ${cp.city} (Temperature < 0°C) [FIRST TIME]`);
                 } else {
-                    this.logger.debug(`CP ${cp.id} already stopped by alert`);
+                    this.logger.debug(`Re-sending STOP command to CP ${cp.id} (ensuring delivery)`);
                 }
+                
+                // Enviar comando STOP en cada iteración para asegurar que llegue
+                this.commandService.postCommand({
+                    command: "STOP",
+                    cpId: cp.id,
+                    target: "ONE"
+                });
+                
+                this.stoppedCPsByAlert.add(cp.id);
             });
         } else {
             this.logger.debug('No active CPs found in alert cities');

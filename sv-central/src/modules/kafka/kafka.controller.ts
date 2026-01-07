@@ -45,14 +45,15 @@ export class KafkaController {
       estado: string
     }> = []
     
-    activeCP.forEach((acp, i) => {
-      const cp = allCps.find((cp) => {cp.id === acp.id})
+    activeCP.forEach((acp) => {
+      const cp = allCps.find((cp) => cp.id === acp.id)
       
-      cpsPayload[i].id = acp.id;
-      cpsPayload[i].ciudad = cp?.ciudad ?? "N/A";
-      cpsPayload[i].precio = acp.price ?? cp?.precio_kwh ?? -1;
-      cpsPayload[i].estado = acp.estado ?? "DESCONOCIDO";
-
+      cpsPayload.push({
+        id: acp.id,
+        ciudad: cp?.ciudad ?? "N/A",
+        precio: acp.price ?? cp?.precio_kwh ?? -1,
+        estado: acp.estado ?? "DESCONOCIDO"
+      })
     })
 
     const centralDriverInput: CentralDriverInput = {
@@ -66,7 +67,7 @@ export class KafkaController {
 
   async connectCpAction(payload: DriverCentralInput): Promise<boolean>{
     
-    const connectCP = this.statusCpService.readAllActiveStatusCP().find((cp) => {cp.id === payload.cp_id})
+    const connectCP = this.statusCpService.readAllActiveStatusCP().find((cp) => cp.id === payload.cp_id)
 
      const centralDriverInput: CentralDriverInput = {
         action: "CONNECT_CP_RESPONSE",

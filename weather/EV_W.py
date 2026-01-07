@@ -145,11 +145,18 @@ def weather_cycle():
             prev_alert = bool(st.get("alert", False))
             now_alert = temp < MIN_TEMP
 
-            if now_alert and not prev_alert:
-                st["alert"] = True
+            if now_alert:
+                if not prev_alert:
+                    st["alert"] = True
+                    print_log(f"ALERT RAISED - city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
+                else:
+                    print_log(f"ALERT ACTIVE - city='{city}' temp={temp}C (re-sending)")
+                
+                # Enviar alerta en cada ciclo mientras esté activa
                 create_alert(city=city)
-                print_log(f"ALERT RAISED - city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
-            elif (not now_alert) and prev_alert:
+                
+            elif prev_alert:
+                # Solo si había alerta pero ahora no
                 st["alert"] = False
                 remove_alert(city=city)
                 print_log(f"ALERT REMOVED - city='{city}' temp={temp}C (threshold {MIN_TEMP}C)")
