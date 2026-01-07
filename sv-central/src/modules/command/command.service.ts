@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CommandInput } from './dto/create-command.input';
 import { CpService } from '../cp/cp.service';
 import { ProducerService } from '../kafka/kafka.service';
@@ -6,78 +6,85 @@ import { CentralCpInput } from '../kafka/dto/central-cp-kafka.input';
 
 @Injectable()
 export class CommandService {
+  private readonly logger = new Logger(CommandService.name);
+  
   constructor(
     private readonly cpService: CpService,
     private readonly producerService: ProducerService
-  ){}
+  ){
+    this.logger.log('CommandService initialized');
+  }
 
   async postCommand(commandInput: CommandInput): Promise<Boolean> {
+    this.logger.log(`Received command: ${commandInput.command} for CP: ${commandInput.cpId}`);
 
     switch(commandInput.command){
       case "STOP":
         return this.stopPettiton(commandInput);
-        break;
       case "BROKEN":
         return this.brokenPetition(commandInput);
-        break;
       case "START":
         return this.startPetition(commandInput);
-      break;
       case "UPDATE_PRICE":
         return this.updatePriceCp(commandInput);
-      break;
       case "UPDATE_CITY":
         return this.updateCityCp(commandInput);
-      break;
       case "UNLINK":
         return this.unlinkPetition(commandInput);
-      break;
       default:
-        return false
+        this.logger.warn(`Unknown command: ${commandInput.command}`);
+        return false;
     }
   }
   
   //------------------------ CP FUNCIONALIDADES ------------------------
   unlinkPetition(commandInput: CommandInput): boolean { 
-    //TODO enviar a cp la petición de desvinculación por kafka
-    return true
+    this.logger.log(`Unlinking CP: ${commandInput.cpId}`);
+    this.cpService.unlink(commandInput.cpId);
+    this.logger.log(`CP ${commandInput.cpId} unlinked successfully`);
+    return true;
   }
   
   
   stopPettiton(commandInput: CommandInput): boolean {
-    console.log("Enviando STOP al CP "+commandInput.cpId);
+    this.logger.log(`Sending STOP command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({
-				cpId: commandInput.cpId,
-				target: "ONE",
-				action: "STOP",
+			cpId: commandInput.cpId,
+			target: "ONE",
+			action: "STOP",
     });
-    return true
+    this.logger.log(`STOP command sent to CP: ${commandInput.cpId}`);
+    return true;
   }
   
   brokenPetition(commandInput: CommandInput): boolean {
-    console.log("Enviando BROKEN al CP "+commandInput.cpId);
+    this.logger.log(`Sending BROKEN command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
       action: "BROKEN",
     });
-    return true
+    this.logger.log(`BROKEN command sent to CP: ${commandInput.cpId}`);
+    return true;
   }
+  
   startPetition(commandInput: CommandInput): boolean {
-    console.log("Enviando START al CP "+commandInput.cpId);
+    this.logger.log(`Sending START command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
       action: "START",
     });
-    return true
+    this.logger.log(`START command sent to CP: ${commandInput.cpId}`);
+    return true;
   }
   
   //------------------------ FRONT FUNCIONALIDADES ------------------------
 
   async updatePriceCp(commandInput: CommandInput): Promise<boolean> {
+    this.logger.log(`Updating price for CP: ${commandInput.cpId} to ${commandInput.newPrice}`);
     
-    const modCP = await this.cpService.findOne(commandInput.cpId)
+    const modCP = await this.cpService.findOne(commandInput.cpId);
     
     if (modCP){
       
@@ -88,15 +95,18 @@ export class CommandService {
         newPrice: commandInput.newPrice,
       }
 
-      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice})
-      return await this.producerService.kafkaEmitToCP(kafkaInput)
+      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice});
+      this.logger.log(`Price updated for CP: ${commandInput.cpId}`);
+      return await this.producerService.kafkaEmitToCP(kafkaInput);
     }
-    return false
+    this.logger.error(`Failed to update price - CP not found: ${commandInput.cpId}`);
+    return false;
   }
 
   async updateCityCp(commandInput: CommandInput): Promise<boolean> {
+    this.logger.log(`Updating city for CP: ${commandInput.cpId} to ${commandInput.newCity}`);
     
-    const modCP = await this.cpService.findOne(commandInput.cpId)
+    const modCP = await this.cpService.findOne(commandInput.cpId);
     
     if (modCP){
       
@@ -107,10 +117,12 @@ export class CommandService {
         newCity: commandInput.newCity,
       }
 
-      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice})
-      return await this.producerService.kafkaEmitToCP(kafkaInput)
+      await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice});
+      this.logger.log(`City updated for CP: ${commandInput.cpId}`);
+      return await this.producerService.kafkaEmitToCP(kafkaInput);
     }
-    return false
+    this.logger.error(`Failed to update city - CP not found: ${commandInput.cpId}`);
+    return false;
   }
   
 }

@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import { CreateCpInput } from './dto/create-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
-import { hash } from 'bcrypt';
 import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
@@ -17,14 +16,9 @@ export class CpService {
 		
 
 		const clienteSecret = randomBytes(32).toString("hex");
-
-		const saltRounds = 10
-		const clientSecretHash = await hash(clienteSecret, saltRounds)
-
 			
-		const savedCP = await this.cpRepository.save(this.cpRepository.create({...createCpInput, clientSecret: clientSecretHash}))
+		const savedCP = await this.cpRepository.save(this.cpRepository.create({...createCpInput, clientSecret: clienteSecret}))
 		
-		savedCP.clientSecret = clienteSecret;
 		return savedCP;
 	}
 	
@@ -64,5 +58,18 @@ export class CpService {
 	//---------------------------- DELETE ----------------------------
 	async remove(id: string): Promise<boolean> {
 		return (await (this.cpRepository.delete(id))).affected !== 0;
+	}
+
+	//---------------------------- UNLINK ----------------------------
+	async unlinkCp(id: string): Promise<CP> {
+		const dbCp = await this.cpRepository.findOne({where: {id: id}})
+		if (!dbCp) {
+			throw new BadRequestException("Cp does not exist in the db")
+		}
+
+		dbCp.symmetricKey = ""
+		this.cpRepository.save(dbCp)
+
+		return dbCp
 	}
 }
