@@ -43,7 +43,7 @@ export class CommandService {
   
   //------------------------ CP FUNCIONALIDADES ------------------------
   finishedChargingPetition(commandInput: CommandInput): boolean {
-    
+    this.logger.debug(`Preparing to send TICKET command: CP: ${commandInput.cpId}, Driver: ${commandInput.driverId}, Price: ${commandInput.price}`);
     if (!commandInput.driverId || !commandInput.price) {
       this.logger.error(`Missing driverId or price for TICKET command for CP: ${commandInput.cpId}`);
       return false;

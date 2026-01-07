@@ -17,8 +17,5 @@ export class CreateCpInput {
     @Min(0)
     precio_kwh: number
 
-    // ----------------------- REGISTRO -----------------------
 
-    @Field({nullable: true})
-    clientSecret?: string
 }
