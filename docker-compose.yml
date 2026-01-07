@@ -135,10 +135,15 @@ services:
       ENGINE_HOST: "0.0.0.0"
       MONITOR_PORT: "9000"
       CP_INDEX: "${HOSTNAME}"
+    volumes:
+      - ./certs/central.crt:/certs/central.crt
+      - ./certs/registry.crt:/certs/registry.crt
     depends_on:
       kafka:
         condition: service_healthy
       ev_central:
+        condition: service_started
+      ev_registry:
         condition: service_started
     ports:
       - "9100-9199:9000"
