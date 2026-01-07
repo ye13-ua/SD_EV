@@ -43,14 +43,23 @@ export class CommandService {
   
   //------------------------ CP FUNCIONALIDADES ------------------------
   finishedChargingPetition(commandInput: CommandInput): boolean {
-    this.logger.log(`Sending TICKET command to CP: ${commandInput.cpId}`);
+    
+    if (!commandInput.driverId || !commandInput.price) {
+      this.logger.error(`Missing driverId or price for TICKET command for CP: ${commandInput.cpId}`);
+      return false;
+    }
+    
+    this.logger.log(`Sending TICKET command to Driver: ${commandInput.driverId}`);
+    
     this.producerService.kafkaEmitToDriver({
       driver_id: commandInput.driverId,
       action: "TICKET",
       cp_id: commandInput.cpId,
       price: commandInput.price,
     });
-    this.logger.log(`FINISHED_CHARGING command sent to CP: ${commandInput.cpId}`);
+    
+    this.logger.log(`FINISHED_CHARGING command sent to Driver: ${commandInput.driverId} with data CP: ${commandInput.cpId} and Price: ${commandInput.price}`);
+    
     return true;
   }
 
