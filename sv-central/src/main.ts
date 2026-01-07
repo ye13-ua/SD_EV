@@ -6,7 +6,8 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 async function bootstrap() {
   
   const certPath = existsSync("/certs/registry.key") ? "/certs" : "../certs";
-  const app = await NestFactory.create(AppModule, {httpsOptions:
+  const app = await NestFactory.create(AppModule, {
+    httpsOptions:
       {
         key: readFileSync(`${certPath}/registry.key`),
         cert: readFileSync(`${certPath}/registry.crt`),
