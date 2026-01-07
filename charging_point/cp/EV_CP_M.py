@@ -173,16 +173,20 @@ def encrypt_json(data: dict, key_hex: str) -> dict:
 
 # GQL post function used to update/relay the status in Central
 def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5, _retry: bool = True):
+    global SYMMETRIC_KEY
 
-    def is_unauthenticated_gql_error(errors):
+    def detect_identity_issue(errors):
         try:
             for err in errors or []:
-                ext = err.get("extensions") or {}
-                if ext.get("code") == "UNAUTHENTICATED":
-                    return True
+                msg = (err.get("message") or "").lower()
+                code = (err.get("extensions") or {}).get("code")
+                if code == "UNAUTHENTICATED":
+                    return "FULL"
+                if "missing symmetric key" in msg:
+                    return "SYMMETRIC_ONLY"
         except Exception:
             pass
-        return False
+        return None
 
     if not CLIENT_SECRET:
         raise RuntimeError("CLIENT_SECRET missing!")
@@ -203,16 +207,32 @@ def gql_post_central(query: str, variables: dict | None = None, timeout: int = 5
     resp.raise_for_status()
     data = resp.json()
 
-    if "errors" in data and data["errors"]:
-        if _retry and is_unauthenticated_gql_error(data["errors"]):
-            logger.warning("Central returned UNAUTHENTICATED :: refreshing symmetric key and retrying once")
-            try:
-                bootstrap_cp_integrity(force_reauth=True)
-            except Exception as e:
-                logger.error(f"Symmetric key refresh failed: {e}")
-                raise RuntimeError(data["errors"])
-            return gql_post_central(query, variables=variables, timeout=timeout, _retry=False)
-        raise RuntimeError(data["errors"])
+    if "errors" in data and data["errors"] and _retry:
+        identity_issue = detect_identity_issue(data["errors"])
+        try:
+            if identity_issue == "SYMMETRIC_ONLY":
+                logger.warning(
+                    f"[{CP_ALIAS}] Central lost symmetric key — re-authenticating"
+                )
+                SYMMETRIC_KEY = None
+                SYMMETRIC_KEY = central_auth_request(CLIENT_SECRET)
+                save_cp_secrets(CLIENT_SECRET, SYMMETRIC_KEY)
+            elif identity_issue == "FULL":
+                logger.warning(
+                    f"[{CP_ALIAS}] Central lost CP identity — full bootstrap"
+                )
+                CLIENT_SECRET = None
+                SYMMETRIC_KEY = None
+                bootstrap_cp_integrity(force_reauth=False)
+        except Exception as e:
+            logger.error(f"Identity recovery failed: {e}")
+            raise RuntimeError(data["errors"])
+        return gql_post_central(
+            query,
+            variables=variables,
+            timeout=timeout,
+            _retry=False
+        )
     
     return data.get("data")
 
@@ -329,6 +349,50 @@ def handle_engine():
 
         time.sleep(PING_INTERVAL)
 
+def central_auth_request(client_secret: str):
+    ciudad = CP_LOCATION.split(",")[-1].strip()
+
+    mutation = """
+    mutation AuthenticateCp($input: RegisterCpInput!) {
+        authenticateCp(registerCpInput: $input) {
+            id
+            ciudad
+            precio_kwh
+            clientSecret
+            symmetricKey
+        }
+    }
+    """
+
+    variables = {
+        "input": {
+            "id": CP_ID,
+            "ciudad": ciudad,
+            "precio_kwh": CP_DEFAULT_PRICE,
+            "clientSecret": client_secret
+        }
+    }
+
+    resp = requests.post(
+        CENTRAL_HOST + "/graphql",
+        json={"query": mutation, "variables": variables},
+        timeout=5,
+        verify=False
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    if "errors" in data:
+        raise RuntimeError(data["errors"])
+
+    result = data["data"]["authenticateCp"]
+
+    sym = result.get("symmetricKey")
+    if not sym:
+        raise RuntimeError("Central did not return symmetricKey")
+    
+    return sym
+
 # Replacement for register_CP_in_central
 def bootstrap_cp_integrity(force_reauth: bool = False):
     global CLIENT_SECRET, SYMMETRIC_KEY
@@ -381,50 +445,6 @@ def bootstrap_cp_integrity(force_reauth: bool = False):
             raise RuntimeError("Registry did not return clientSecret")
 
         return secret
-    
-    def central_auth_request(client_secret: str):
-        nonlocal ciudad
-
-        mutation = """
-        mutation AuthenticateCp($input: RegisterCpInput!) {
-            authenticateCp(registerCpInput: $input) {
-                id
-                ciudad
-                precio_kwh
-                clientSecret
-                symmetricKey
-            }
-        }
-        """
-
-        variables = {
-            "input": {
-                "id": CP_ID,
-                "ciudad": ciudad,
-                "precio_kwh": CP_DEFAULT_PRICE,
-                "clientSecret": client_secret
-            }
-        }
-
-        resp = requests.post(
-            CENTRAL_HOST + "/graphql",
-            json={"query": mutation, "variables": variables},
-            timeout=5,
-            verify=False
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        if "errors" in data:
-            raise RuntimeError(data["errors"])
-
-        result = data["data"]["authenticateCp"]
-
-        sym = result.get("symmetricKey")
-        if not sym:
-            raise RuntimeError("Central did not return symmetricKey")
-        
-        return sym
     
     if CLIENT_SECRET and SYMMETRIC_KEY and not force_reauth:
         logger.info(f"[{CP_ALIAS}] Identity already present (clientSecret + symmetricKey)")
