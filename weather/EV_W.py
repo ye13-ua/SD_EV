@@ -76,7 +76,7 @@ def request_cities_from_central() -> list[str]:
 
 def create_alert(city: str):
     mutation = """
-    mutation CreateAlert($ciudad: String!) {
+    mutation createAlert($ciudad: String!) {
         createAlert(ciudad: $ciudad)
     }
     """
@@ -91,7 +91,7 @@ def create_alert(city: str):
 
 def remove_alert(city: str):
     mutation = """
-    mutation RemoveAlert($ciudad: String!) {
+    mutation removeAlert($ciudad: String!) {
         removeAlert(ciudad: $ciudad)
     }
     """
