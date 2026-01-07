@@ -48,9 +48,13 @@ import uuid
 import random
 import threading
 import requests
+import urllib3
 from flask import Flask, render_template_string, jsonify
 
 # Config
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 ENGINE_HOST = os.getenv("ENGINE_HOST","localhost")
 ENGINE_PORT = int(os.getenv("ENGINE_PORT","7000"))
 
