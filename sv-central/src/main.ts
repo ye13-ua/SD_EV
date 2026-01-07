@@ -1,16 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as fs from "node:fs"
+import { readFileSync, existsSync } from "node:fs"
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
   
-  
-  //TODO cambiar el archivo de certs al que esta en docker
+  const certPath = existsSync("/certs/registry.key") ? "/certs" : "../certs";
   const app = await NestFactory.create(AppModule, {httpsOptions:
       {
-        key: fs.readFileSync("../certs/registry.key"),
-        cert: fs.readFileSync("../certs/registry.crt"),
+        key: readFileSync(`${certPath}/registry.key`),
+        cert: readFileSync(`${certPath}/registry.crt`),
   },});
   
   // Habilitar CORS
