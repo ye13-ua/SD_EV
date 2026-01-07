@@ -125,7 +125,8 @@ services:
       dockerfile: Dockerfile
     environment:
       KAFKA_BROKER: "kafka:9092"
-      CENTRAL_HOST: "http://central:4000"
+      CENTRAL_HOST: "http://ev_central:4000"
+      REGISTRY_GRAPHQL: "https://ev_registry:4001/graphql"
       ENGINE_PORT: "7000"
       ENGINE_HOST: "0.0.0.0"
       MONITOR_PORT: "9000"
@@ -151,7 +152,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      central:
+      ev_central:
         condition: service_started
     # UI del driver expuesta por réplica en rango 9200-9299
     ports:
