@@ -57,6 +57,14 @@ STATE_FILE = "driver_state.json"
 driver_info = {}
 driver_state = {"status": "IDLE", "current_cp": None, "last_ticket": None, "available_cps": []}
 
+driver_state = {
+    "status": "IDLE",
+    "current_cp": None,
+    "last_ticket": None,
+    "available_cps": [],        # for UI iteration
+    "cp_cache": {}              # NEW: id → full CP info
+}
+
 def load_or_register_driver(producer):
     if os.path.exists(INFO_FILE):
         with open(INFO_FILE, "r") as f:
@@ -179,7 +187,17 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
             save_driver_state()
             logger.info(f"Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
-            driver_state["available_cps"] = data.get("cps", [])
+            cps = data.get("cps", [])
+            for cp in cps:
+                    cp_id = cp.get("id")
+                    if not cp_id:
+                        continue
+                    cached = driver_state["cp_cache"].get(cp_id, {})
+                    cached.update(cp)
+                    driver_state["cp_cache"][cp_id] = cached
+            driver_state["available_cps"] = list(driver_state["cp_cache"].values())
+            save_driver_state()
+
             save_driver_state()
             if not driver_state["available_cps"]:
                 logger.info("No hay CPs activos")
@@ -242,7 +260,7 @@ TEMPLATE = """
       {% for cp in cps %}
         - {{ cp['id'] }} |
           {{ cp['calle'] }}, {{ cp['ciudad'] }} |
-          {{ cp['precio_kwh'] }} €/kWh
+          {{ cp.get('precio_kwh', '—') }} €/kWh
       {% endfor %}
     {% endif %}
     <hr>
