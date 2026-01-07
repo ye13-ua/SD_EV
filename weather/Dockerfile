@@ -9,4 +9,4 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "weather_main.py"]
+CMD ["python", "EV_W.py"]
