@@ -51,12 +51,16 @@ export class CommandService {
     
     this.logger.log(`Sending TICKET command to Driver: ${commandInput.driverId}`);
     
-    this.producerService.kafkaEmitToDriver({
+    const ticketPayload = {
       driver_id: commandInput.driverId,
-      action: "TICKET",
+      action: "TICKET" as const,
       cp_id: commandInput.cpId,
       price: commandInput.price,
-    });
+    };
+    
+    this.logger.debug(`[TICKET ENVIADO] Payload completo: ${JSON.stringify(ticketPayload)}`);
+    
+    this.producerService.kafkaEmitToDriver(ticketPayload);
     
     this.logger.log(`FINISHED_CHARGING command sent to Driver: ${commandInput.driverId} with data CP: ${commandInput.cpId} and Price: ${commandInput.price}`);
     
