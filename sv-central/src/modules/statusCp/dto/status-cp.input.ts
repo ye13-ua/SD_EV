@@ -2,7 +2,7 @@
 import { Field, InputType, PartialType } from "@nestjs/graphql";
 import {IsUUID} from "class-validator";
 
-type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING"
+type CPType = "ACTIVE" | "WAITING" | "OUT_OF_SERVICE" | "CHARGING_CENTRAL" | "BROKEN" | "DISCONNECTED" | "FINISHED_CHARGING" | "COLD";
 
 @InputType()
 export class StatusCpInput {
