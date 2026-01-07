@@ -51,6 +51,8 @@ CP_CAR_IS_CONNECTED = False
 CP_DRIVER_ID = None
 CP_DRIVER_ALIAS = None
 
+CP_META_PATH = "cp_meta.json"
+
 CP_CITY = None
 
 _consumer_started = False
@@ -64,6 +66,23 @@ LOCAL_REQ = {
 
 state_lock = Lock()
 
+def load_cp_meta():
+    global CP_CITY
+    if os.path.exists(CP_META_PATH):
+        try:
+            with open(CP_META_PATH, "r") as f:
+                meta = json.load(f)
+            CP_CITY = meta.get("city", CP_CITY)
+        except Exception as e:
+            logger.warning(f"Failed to load cp meta: {e}")
+
+def save_cp_meta():
+    try:
+        with open(CP_META_PATH, "w") as f:
+            json.dump({"city": CP_CITY}, f)
+    except Exception as e:
+        logger.warning(f"Failed to save cp meta: {e}")
+
 def _start_kafka_consumer_if_needed():
     global _consumer_started
     with _consumer_lock:
@@ -75,7 +94,7 @@ def _start_kafka_consumer_if_needed():
 
 # Respond to ping from monitor
 def handle_monitor(conn):
-    global kafka_ok, CP_ID, CP_STATUS, CP_PRICE, CP_DRIVER_ID
+    global kafka_ok, CP_ID, CP_STATUS, CP_PRICE, CP_DRIVER_ID, CP_CITY
 
     try:
         data = conn.recv(1024)
@@ -114,12 +133,18 @@ def handle_monitor(conn):
             #if CP_ID:
             #    publish_status("ACTIVE")
         elif action == "AUTH":
-            if CP_ID is None and "cp_id" in msg:
-                CP_ID = str(msg["cp_id"])
-                CP_PRICE = msg["cp_price"]
-                CP_STATUS = "AUTH_SUCCESS"
-                print (f"[Engine] Linked to CP_ID {CP_ID}")
-                _start_kafka_consumer_if_needed()
+            if "cp_id" in msg:
+                if CP_ID is None:
+                    CP_ID = str(msg["cp_id"])
+                    CP_PRICE = msg["cp_price"]
+                    CP_STATUS = "AUTH_SUCCESS"
+                    print (f"[Engine] Linked to CP_ID {CP_ID}")
+                    _start_kafka_consumer_if_needed()
+                incoming_city = msg.get("city")
+                if incoming_city:
+                    with state_lock:
+                        CP_CITY = incoming_city
+                    save_cp_meta()
             response = {"status": CP_STATUS, "kafka_ok":kafka_ok}
             conn.sendall(json.dumps(response).encode())
             CP_STATUS = "ACTIVE"
@@ -176,7 +201,7 @@ def listen_central_commands():
 
 # Handles command recieved via kafka from the central
 def handle_central_command(cmd):
-    global PENDING_LOCAL_REQ, CP_STATUS, CP_DRIVER_ID, CP_CAR_IS_CONNECTED, CP_TARGET_CHARGE, CP_PRICE
+    global PENDING_LOCAL_REQ, CP_STATUS, CP_DRIVER_ID, CP_CAR_IS_CONNECTED, CP_TARGET_CHARGE, CP_PRICE, CP_CITY
     
     if CP_STATUS == "BROKEN":
         print(f"[Engine] Ignoring command while BROKEN: {cmd.get('action')}")
@@ -216,6 +241,7 @@ def handle_central_command(cmd):
             return
         with state_lock:
             CP_CITY = new_city
+        save_cp_meta()
         logger.info(f"City updated via Central: {new_city}")
     elif action == "BROKEN":
         with state_lock:
@@ -345,6 +371,7 @@ def recover_previous_session():
 # Defacto main function
 def start_server():
     # Initialize sockets
+    load_cp_meta()
     recover_previous_session()
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

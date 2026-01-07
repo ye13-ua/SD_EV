@@ -246,7 +246,7 @@ def ping_engine(action):
             s.connect((ENGINE_HOST, ENGINE_PORT))
             payload = {"action": action, "cp_id": CP_ID}
             if action == 'AUTH':
-                payload = {"action": action, "cp_id": CP_ID, "cp_price": CP_DEFAULT_PRICE}
+                payload = {"action": action, "cp_id": CP_ID, "cp_price": CP_DEFAULT_PRICE, "city": CP_LOCATION.split(",", 1)[-1].strip()}
             s.sendall(json.dumps(payload).encode())
             data = s.recv(1024)
             reply = json.loads(data.decode())
