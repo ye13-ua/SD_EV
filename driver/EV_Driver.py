@@ -182,9 +182,14 @@ def listen_to_central(producer, consumer, stop_event, driver_info):
                 driver_state["status"] = "Conexión denegada"
                 logger.warning("Conexión denegada")
         elif action == "TICKET":
-            driver_state["last_ticket"] = data
+            existing = driver_state.get("last_ticket") or {}
+            merged = dict(existing)
+            merged.update(data)
+            driver_state["last_ticket"] = merged
             driver_state["status"] = "Carga completada"
+            
             save_driver_state()
+
             logger.info(f"Ticket recibido desde CP:{data.get('cp_id')} | Coste {data.get('price')}€")
         elif action == "READALL_RESPONSE":
             cps = data.get("cps", [])
