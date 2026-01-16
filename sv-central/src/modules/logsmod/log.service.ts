@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CreateLogInput } from './dto/create-log.input';
 import { Log } from './entities/log.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,10 +11,11 @@ export class LogService {
     this.logger.log('LogService initialized');
   }
   
-  async create(createLogInput: CreateLogInput): Promise<Log> {
-    this.logger.log(`Creating log entry: ${createLogInput.description?.substring(0, 50) || 'no description'}`);
-    const log = await this.logRepository.save(this.logRepository.create(createLogInput));
-    this.logger.debug(`Log entry created with timestamp: ${log.timestamp}`);
+  async create(description: string): Promise<Log> {
+    const newLog = new Log();
+    newLog.timestamp = new Date().getTime();
+    newLog.description = description;
+    const log = await this.logRepository.save(this.logRepository.create(newLog));
     return log;
   }
 

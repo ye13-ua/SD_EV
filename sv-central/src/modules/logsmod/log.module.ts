@@ -7,5 +7,6 @@ import { Log } from './entities/log.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([Log])],
   providers: [LogResolver, LogService],
+  exports: [LogService],
 })
 export class LogModule {}

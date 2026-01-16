@@ -3,6 +3,7 @@ import { CommandInput } from './dto/create-command.input';
 import { CpService } from '../cp/cp.service';
 import { ProducerService } from '../kafka/kafka.service';
 import { CentralCpInput } from '../kafka/dto/central-cp-kafka.input';
+import { LogService } from '../logsmod/log.service';
 
 @Injectable()
 export class CommandService {
@@ -10,13 +11,16 @@ export class CommandService {
   
   constructor(
     private readonly cpService: CpService,
-    private readonly producerService: ProducerService
+    private readonly producerService: ProducerService,
+    private readonly logService: LogService
   ){
     this.logger.log('CommandService initialized');
+    this.logService.create('CommandService initialized');
   }
 
   async postCommand(commandInput: CommandInput): Promise<Boolean> {
     this.logger.log(`Received command: ${commandInput.command} for CP: ${commandInput.cpId}`);
+    this.logService.create(`Received command: ${commandInput.command} for CP: ${commandInput.cpId}`);
 
     switch(commandInput.command){
       case "STOP":
@@ -37,6 +41,7 @@ export class CommandService {
         return this.finishedChargingPetition(commandInput);
       default:
         this.logger.warn(`Unknown command: ${commandInput.command}`);
+        this.logService.create(`Unknown command: ${commandInput.command}`);
         return false;
     }
   }
@@ -44,12 +49,15 @@ export class CommandService {
   //------------------------ CP FUNCIONALIDADES ------------------------
   finishedChargingPetition(commandInput: CommandInput): boolean {
     this.logger.debug(`Preparing to send TICKET command: CP: ${commandInput.cpId}, Driver: ${commandInput.driverId}, Price: ${commandInput.price}`);
+    this.logService.create(`Preparing to send TICKET command: CP: ${commandInput.cpId}, Driver: ${commandInput.driverId}, Price: ${commandInput.price}`);
     if (!commandInput.driverId || !commandInput.price) {
       this.logger.error(`Missing driverId or price for TICKET command for CP: ${commandInput.cpId}`);
+      this.logService.create(`Missing driverId or price for TICKET command for CP: ${commandInput.cpId}`);
       return false;
     }
     
     this.logger.log(`Sending TICKET command to Driver: ${commandInput.driverId}`);
+    this.logService.create(`Sending TICKET command to Driver: ${commandInput.driverId}`);
     
     const ticketPayload = {
       driver_id: commandInput.driverId,
@@ -59,63 +67,76 @@ export class CommandService {
     };
     
     this.logger.debug(`[TICKET ENVIADO] Payload completo: ${JSON.stringify(ticketPayload)}`);
+    this.logService.create(`[TICKET ENVIADO] Payload completo: ${JSON.stringify(ticketPayload)}`);
     
     this.producerService.kafkaEmitToDriver(ticketPayload);
     
     this.logger.log(`FINISHED_CHARGING command sent to Driver: ${commandInput.driverId} with data CP: ${commandInput.cpId} and Price: ${commandInput.price}`);
+    this.logService.create(`FINISHED_CHARGING command sent to Driver: ${commandInput.driverId} with data CP: ${commandInput.cpId} and Price: ${commandInput.price}`);
     
     return true;
   }
 
   stopColdPetition(commandInput: CommandInput): boolean {
     this.logger.log(`Sending STOP_COLD command to CP: ${commandInput.cpId}`);
+    this.logService.create(`Sending STOP_COLD command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({ 
       cpId: commandInput.cpId,
       target: "ONE",
       action: "STOP_COLD",
     });
     this.logger.log(`STOP_COLD command sent to CP: ${commandInput.cpId}`);
+    this.logService.create(`STOP_COLD command sent to CP: ${commandInput.cpId}`);
     return true;
   }
 
   unlinkPetition(commandInput: CommandInput): boolean { 
     this.logger.log(`Unlinking CP: ${commandInput.cpId}`);
+    this.logService.create(`Unlinking CP: ${commandInput.cpId}`);
     this.cpService.unlink(commandInput.cpId);
     this.logger.log(`CP ${commandInput.cpId} unlinked successfully`);
+    this.logService.create(`CP ${commandInput.cpId} unlinked successfully`);
     return true;
   }
   
   
   stopPettiton(commandInput: CommandInput): boolean {
     this.logger.log(`Sending STOP command to CP: ${commandInput.cpId}`);
+    this.logService.create(`Sending STOP command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({
 			cpId: commandInput.cpId,
 			target: "ONE",
 			action: "STOP",
     });
     this.logger.log(`STOP command sent to CP: ${commandInput.cpId}`);
+    this.logService.create(`STOP command sent to CP: ${commandInput.cpId}`);
     return true;
   }
   
   brokenPetition(commandInput: CommandInput): boolean {
     this.logger.log(`Sending BROKEN command to CP: ${commandInput.cpId}`);
+    this.logService.create(`Sending BROKEN command to CP: ${commandInput.cpId}`);
+
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
       action: "BROKEN",
     });
     this.logger.log(`BROKEN command sent to CP: ${commandInput.cpId}`);
+    this.logService.create(`BROKEN command sent to CP: ${commandInput.cpId}`);
     return true;
   }
   
   startPetition(commandInput: CommandInput): boolean {
     this.logger.log(`Sending START command to CP: ${commandInput.cpId}`);
+    this.logService.create(`Sending START command to CP: ${commandInput.cpId}`);
     this.producerService.kafkaEmitToCP({
       cpId: commandInput.cpId,
       target: "ONE",
       action: "START",
     });
     this.logger.log(`START command sent to CP: ${commandInput.cpId}`);
+    this.logService.create(`START command sent to CP: ${commandInput.cpId}`);
     return true;
   }
   
@@ -123,6 +144,7 @@ export class CommandService {
 
   async updatePriceCp(commandInput: CommandInput): Promise<boolean> {
     this.logger.log(`Updating price for CP: ${commandInput.cpId} to ${commandInput.newPrice}`);
+    this.logService.create(`Updating price for CP: ${commandInput.cpId} to ${commandInput.newPrice}`);
     
     const modCP = await this.cpService.findOne(commandInput.cpId);
     
@@ -137,14 +159,17 @@ export class CommandService {
 
       await this.cpService.update({id: commandInput.cpId, precio_kwh: commandInput.newPrice});
       this.logger.log(`Price updated for CP: ${commandInput.cpId}`);
+      this.logService.create(`Price updated for CP: ${commandInput.cpId}`);
       return await this.producerService.kafkaEmitToCP(kafkaInput);
     }
     this.logger.error(`Failed to update price - CP not found: ${commandInput.cpId}`);
+    this.logService.create(`Failed to update price - CP not found: ${commandInput.cpId}`);
     return false;
   }
 
   async updateCityCp(commandInput: CommandInput): Promise<boolean> {
     this.logger.log(`Updating city for CP: ${commandInput.cpId} to ${commandInput.newCity}`);
+    this.logService.create(`Updating city for CP: ${commandInput.cpId} to ${commandInput.newCity}`);
     
     const modCP = await this.cpService.findOne(commandInput.cpId);
     
@@ -159,9 +184,11 @@ export class CommandService {
 
       await this.cpService.update({id: commandInput.cpId, ciudad: commandInput.newCity});
       this.logger.log(`City updated for CP: ${commandInput.cpId}`);
+      this.logService.create(`City updated for CP: ${commandInput.cpId}`);
       return await this.producerService.kafkaEmitToCP(kafkaInput);
     }
     this.logger.error(`Failed to update city - CP not found: ${commandInput.cpId}`);
+    this.logService.create(`Failed to update city - CP not found: ${commandInput.cpId}`);
     return false;
   }
   

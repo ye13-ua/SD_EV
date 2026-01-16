@@ -7,13 +7,14 @@ import { StatusCpService } from '../statusCp/statuscp.service';
 import { CentralDriverInput } from './dto/central-driver-kafka.input';
 import { CpService } from '../cp/cp.service';
 import { CentralCpInput } from './dto/central-cp-kafka.input';
+import { LogService } from '../logsmod/log.service';
 
 @Controller()
 export class KafkaController {
   constructor(
     private readonly producerService: ProducerService,
     private readonly statusCpService :StatusCpService,
-    private readonly CpService :CpService
+    private readonly CpService :CpService,
   ) {}
 
   @MessagePattern(KafkaTopics.DRIVER_COMMANDS)
@@ -47,7 +48,6 @@ export class KafkaController {
     
     activeCP.forEach((acp) => {
       const cp = allCps.find((cp) => cp.id === acp.id)
-      
       cpsPayload.push({
         id: acp.id,
         ciudad: cp?.ciudad ?? "N/A",

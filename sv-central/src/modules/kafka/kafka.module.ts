@@ -4,6 +4,7 @@ import { KafkaController } from './kafka.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { StatusCpModule } from '../statusCp/statuscp.module';
 import { CpModule } from '../cp/cp.module';
+import { LogModule } from '../logsmod/log.module';
 
 
 
@@ -22,7 +23,7 @@ import { CpModule } from '../cp/cp.module';
         }
       },
     }
-  ]), forwardRef(() => StatusCpModule), CpModule],
+  ]), forwardRef(() => StatusCpModule), CpModule, LogModule],
   controllers: [KafkaController],
   providers: [ProducerService],
   exports: [ProducerService]

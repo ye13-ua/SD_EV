@@ -6,23 +6,30 @@ import { RegisterCpInput } from './dto/register-cp.input';
 import { UpdateCpInput } from './dto/update-cp.input';
 import { randomBytes } from 'crypto';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { LogService } from '../logsmod/log.service';
 
 @Injectable()
 export class CpService {
 	private readonly logger = new Logger(CpService.name);
 	
-	constructor(@InjectRepository(CP)private readonly cpRepository: Repository<CP>){
+	constructor(
+		@InjectRepository(CP)
+		private readonly cpRepository: Repository<CP>,
+		private readonly logService: LogService
+	){
 		this.logger.log('CpService initialized');
 	}
 	
 	//---------------------------- AUTHENTICATE ----------------------------
 	async authenticateCp(registerCpInput: RegisterCpInput): Promise<CP> {
 		this.logger.log(`Authenticating CP: ${registerCpInput.id}`);
+		this.logService.create(`Authenticating CP: ${registerCpInput.id}`);
 
 		const dbCp = await this.cpRepository.findOne({where: {id: registerCpInput.id}});
 		
 		if (!dbCp){
 			this.logger.error(`Authentication failed - CP not found: ${registerCpInput.id}`);
+			this.logService.create(`Authentication failed - CP not found: ${registerCpInput.id}`);
 			throw new UnauthorizedException('Bad credentials');
 		}
 
@@ -30,39 +37,46 @@ export class CpService {
 		
 		if (!isValid) {
 			this.logger.error(`Authentication failed - Invalid secret for CP: ${registerCpInput.id}`);
+			this.logService.create(`Authentication failed - Invalid secret for CP: ${registerCpInput.id}`);
 			throw new UnauthorizedException('Bad credentials');
 		}
 
 		dbCp.symmetricKey = randomBytes(32).toString("hex");
 		await this.cpRepository.save(dbCp);
 		this.logger.log(`CP authenticated successfully: ${registerCpInput.id}`);
+		this.logService.create(`CP authenticated successfully: ${registerCpInput.id}`);
 		return dbCp;
 	}
 
 	//---------------------------- READ ----------------------------
 	async findAll(): Promise<CP[]> {
 		this.logger.debug('Finding all CPs');
+		this.logService.create('Finding all CPs');
 		const cps = await this.cpRepository.find();
 		this.logger.debug(`Found ${cps.length} CPs`);
+		this.logService.create(`Found ${cps.length} CPs`);
 		return cps;
 	}
 
 	async findOne(id: string): Promise<CP> {
 		this.logger.debug(`Finding CP: ${id}`);
-		 
+		this.logService.create(`Finding CP: ${id}`);
 		const dbCp = await this.cpRepository.findOne({where: {id: id}});
 		
 		if (!dbCp) {
 			this.logger.error(`CP not found: ${id}`);
+			this.logService.create(`CP not found: ${id}`);
 			throw new BadRequestException("Cp does not exist in the db");
 		}
 
 		this.logger.debug(`CP found: ${id}`);
+		this.logService.create(`CP found: ${id}`);
 		return dbCp;
 	}
 
 	async findAllCitiesCp(): Promise<string[]> {
 		this.logger.debug('Finding all cities from CPs');
+		this.logService.create('Finding all cities from CPs');
 		const cps = await this.cpRepository.find({
 			where: { ciudad: Not(IsNull()) },
 			select: ['ciudad']
@@ -71,30 +85,36 @@ export class CpService {
 		// Extraer ciudades únicas
 		const cities = [...new Set(cps.map(cp => cp.ciudad).filter(ciudad => ciudad))];
 		this.logger.debug(`Found ${cities.length} unique cities`);
+		this.logService.create(`Found ${cities.length} unique cities`);
 		return cities;
 	}
 	//---------------------------- UNLINK ----------------------------
 	async unlink(id: string): Promise<boolean> {
 		this.logger.log(`Unlinking CP: ${id}`);
+		this.logService.create(`Unlinking CP: ${id}`);
 		
 		const dbCp = await this.cpRepository.findOne({where: {id: id}});
 		
 		if (!dbCp) {
 			this.logger.error(`Cannot unlink - CP not found: ${id}`);
+			this.logService.create(`Cannot unlink - CP not found: ${id}`);
 			throw new BadRequestException("Cp does not exist in the db");
 		}
 		
 		dbCp.symmetricKey = "";
 		await this.cpRepository.save(dbCp);
 		this.logger.log(`CP unlinked successfully: ${id}`);
+		this.logService.create(`CP unlinked successfully: ${id}`);
 
 		return true;
 	}
 	//---------------------------- UPDATE ----------------------------
 	async update(updateCpInput: UpdateCpInput): Promise<CP> {
 		this.logger.log(`Updating CP: ${updateCpInput.id}`);
+		this.logService.create(`Updating CP: ${updateCpInput.id}`);
 		const updated = await this.cpRepository.save(updateCpInput);
 		this.logger.log(`CP updated successfully: ${updateCpInput.id}`);
+		this.logService.create(`CP updated successfully: ${updateCpInput.id}`);
 		return updated;
 	}
 }
